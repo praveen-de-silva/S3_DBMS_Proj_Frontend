@@ -199,7 +199,7 @@ app.get('/api/admin/users', async (req, res) => {
   }
 });
 
-// Delete user (Admin only)
+// DELETE /api/admin/users/:id - Already exists in your backend
 app.delete('/api/admin/users/:id', async (req, res) => {
   // Verify admin authorization
   const token = req.headers.authorization?.split(' ')[1];

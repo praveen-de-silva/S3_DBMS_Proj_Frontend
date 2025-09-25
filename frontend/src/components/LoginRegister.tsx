@@ -83,7 +83,7 @@ const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) => {
   return (
     <div className="App">
       <header className="App-header">
-        <h1>Microbanking System</h1>
+        <h1>B-Trust Microbanking System</h1>
         <div className="auth-container">
           {/* Loading Overlay */}
           {isLoading && (

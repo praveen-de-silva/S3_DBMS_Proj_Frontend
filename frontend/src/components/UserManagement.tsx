@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 interface UserFormData {
@@ -14,6 +14,20 @@ interface UserFormData {
   contact_id: string;
 }
 
+interface User {
+  employee_id: string;
+  username: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+  nic: string;
+  gender: string;
+  date_of_birth: string;
+  branch_id: string;
+  contact_id: string;
+  created_at: string;
+}
+
 interface FormErrors {
   [key: string]: string;
 }
@@ -21,8 +35,10 @@ interface FormErrors {
 const UserManagement: React.FC = () => {
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
   const [successMessage, setSuccessMessage] = useState('');
+  const [users, setUsers] = useState<User[]>([]);
   const [formData, setFormData] = useState<UserFormData>({
     role: 'Agent',
     username: '',
@@ -35,6 +51,26 @@ const UserManagement: React.FC = () => {
     branch_id: '',
     contact_id: ''
   });
+
+  // Fetch users on component mount
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get('/api/admin/users', {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      setUsers(response.data.users);
+    } catch (error: any) {
+      console.error('Failed to fetch users:', error);
+      alert('Failed to load users');
+    }
+  };
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -103,10 +139,34 @@ const UserManagement: React.FC = () => {
       });
       setErrors({});
       setIsAddingUser(false);
+      fetchUsers(); // Refresh the user list
     } catch (error: any) {
       alert(error.response?.data?.message || 'Failed to create user');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async (employeeId: string) => {
+    if (!window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+      return;
+    }
+
+    setIsDeleting(employeeId);
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`/api/admin/users/${employeeId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      setSuccessMessage('User deleted successfully');
+      fetchUsers(); // Refresh the user list
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Failed to delete user');
+    } finally {
+      setIsDeleting(null);
     }
   };
 
@@ -126,24 +186,81 @@ const UserManagement: React.FC = () => {
     }
   };
 
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
   return (
     <div className="user-management">
       <div className="section-header">
         <h3>User Management</h3>
         <button 
-          className="btn-primary"
+          className="btn btn-primary"
           onClick={() => setIsAddingUser(true)}
         >
-          Add New User
+          + Add New User
         </button>
       </div>
 
       {successMessage && (
         <div className="success-message">
           {successMessage}
+          <button 
+            className="close-btn"
+            onClick={() => setSuccessMessage('')}
+            style={{ marginLeft: '10px', background: 'none', border: 'none', fontSize: '16px' }}
+          >
+            ×
+          </button>
         </div>
       )}
 
+      {/* Users List */}
+      <div className="users-section">
+        <h4>Existing Users ({users.length})</h4>
+        {users.length === 0 ? (
+          <div className="no-users">
+            <p>No users found. Add your first user to get started.</p>
+          </div>
+        ) : (
+          <div className="users-grid">
+            {users.map((user) => (
+              <div key={user.employee_id} className="user-card">
+                <div className="user-info">
+                  <div className="user-main">
+                    <h5>{user.first_name} {user.last_name}</h5>
+                    <p className="user-id">ID: {user.employee_id}</p>
+                    <span className={`role-badge role-${user.role.toLowerCase()}`}>
+                      {user.role}
+                    </span>
+                  </div>
+                  <div className="user-details">
+                    <p><strong>Username:</strong> {user.username}</p>
+                    <p><strong>NIC:</strong> {user.nic}</p>
+                    <p><strong>Branch:</strong> {user.branch_id}</p>
+                    <p><strong>Joined:</strong> {formatDate(user.created_at)}</p>
+                  </div>
+                </div>
+                <div className="user-actions">
+                  <button 
+                    className="btn btn-danger btn-sm"
+                    onClick={() => handleDeleteUser(user.employee_id)}
+                    disabled={isDeleting === user.employee_id}
+                  >
+                    {isDeleting === user.employee_id ? 'Deleting...' : 'Delete'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Add User Modal */}
       {isAddingUser && (
         <div className="modal-overlay">
           <div className="modal-content">
@@ -296,10 +413,18 @@ const UserManagement: React.FC = () => {
               </div>
 
               <div className="form-actions">
-                <button type="button" onClick={() => setIsAddingUser(false)}>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary"
+                  onClick={() => setIsAddingUser(false)}
+                >
                   Cancel
                 </button>
-                <button type="submit" disabled={isLoading}>
+                <button 
+                  type="submit" 
+                  className="btn btn-primary"
+                  disabled={isLoading}
+                >
                   {isLoading ? 'Creating User...' : 'Create User'}
                 </button>
               </div>
