@@ -124,7 +124,7 @@ const UserManagement: React.FC = () => {
         }
       });
       
-      setSuccessMessage(`User created successfully! Employee ID: ${response.data.employee_id}`);
+      setSuccessMessage(`User "${formData.first_name} ${formData.last_name}" created successfully! Employee ID: ${response.data.employee_id}`);
       setFormData({
         role: 'Agent',
         username: '',
@@ -147,8 +147,8 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  const handleDeleteUser = async (employeeId: string) => {
-    if (!window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+  const handleDeleteUser = async (employeeId: string, userName: string) => {
+    if (!window.confirm(`Are you sure you want to delete user "${userName}"? This action cannot be undone.`)) {
       return;
     }
 
@@ -161,7 +161,7 @@ const UserManagement: React.FC = () => {
         }
       });
       
-      setSuccessMessage('User deleted successfully');
+      setSuccessMessage(`User "${userName}" deleted successfully`);
       fetchUsers(); // Refresh the user list
     } catch (error: any) {
       alert(error.response?.data?.message || 'Failed to delete user');
@@ -194,68 +194,124 @@ const UserManagement: React.FC = () => {
     });
   };
 
+  const getRoleBadgeClass = (role: string) => {
+    switch (role.toLowerCase()) {
+      case 'admin': return 'role-badge role-admin';
+      case 'manager': return 'role-badge role-manager';
+      case 'agent': return 'role-badge role-agent';
+      default: return 'role-badge';
+    }
+  };
+
   return (
     <div className="user-management">
       <div className="section-header">
-        <h3>User Management</h3>
+        <div>
+          <h3>User Management</h3>
+          <p className="section-subtitle">Manage system users and permissions</p>
+        </div>
         <button 
           className="btn btn-primary"
           onClick={() => setIsAddingUser(true)}
         >
-          + Add New User
+          <span className="btn-icon">+</span> Add New User
         </button>
       </div>
 
       {successMessage && (
         <div className="success-message">
+          <span className="success-icon">✓</span>
           {successMessage}
           <button 
             className="close-btn"
             onClick={() => setSuccessMessage('')}
-            style={{ marginLeft: '10px', background: 'none', border: 'none', fontSize: '16px' }}
           >
             ×
           </button>
         </div>
       )}
 
-      {/* Users List */}
-      <div className="users-section">
-        <h4>Existing Users ({users.length})</h4>
+      {/* Users Table */}
+      <div className="table-container">
+        <div className="table-header">
+          <h4>System Users</h4>
+          <span className="user-count">{users.length} user(s) found</span>
+        </div>
+        
         {users.length === 0 ? (
-          <div className="no-users">
-            <p>No users found. Add your first user to get started.</p>
+          <div className="no-data">
+            <div className="no-data-icon">👥</div>
+            <h5>No Users Found</h5>
+            <p>Get started by adding your first user to the system.</p>
+            <button 
+              className="btn btn-primary"
+              onClick={() => setIsAddingUser(true)}
+            >
+              Add First User
+            </button>
           </div>
         ) : (
-          <div className="users-grid">
-            {users.map((user) => (
-              <div key={user.employee_id} className="user-card">
-                <div className="user-info">
-                  <div className="user-main">
-                    <h5>{user.first_name} {user.last_name}</h5>
-                    <p className="user-id">ID: {user.employee_id}</p>
-                    <span className={`role-badge role-${user.role.toLowerCase()}`}>
-                      {user.role}
-                    </span>
-                  </div>
-                  <div className="user-details">
-                    <p><strong>Username:</strong> {user.username}</p>
-                    <p><strong>NIC:</strong> {user.nic}</p>
-                    <p><strong>Branch:</strong> {user.branch_id}</p>
-                    <p><strong>Joined:</strong> {formatDate(user.created_at)}</p>
-                  </div>
-                </div>
-                <div className="user-actions">
-                  <button 
-                    className="btn btn-danger btn-sm"
-                    onClick={() => handleDeleteUser(user.employee_id)}
-                    disabled={isDeleting === user.employee_id}
-                  >
-                    {isDeleting === user.employee_id ? 'Deleting...' : 'Delete'}
-                  </button>
-                </div>
-              </div>
-            ))}
+          <div className="table-wrapper">
+            <table className="users-table">
+              <thead>
+                <tr>
+                  <th>Employee ID</th>
+                  <th>Name</th>
+                  <th>Username</th>
+                  <th>Role</th>
+                  <th>NIC</th>
+                  <th>Branch</th>
+                  <th>Joined Date</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((user) => (
+                  <tr key={user.employee_id} className={isDeleting === user.employee_id ? 'deleting' : ''}>
+                    <td>
+                      <span className="employee-id">{user.employee_id}</span>
+                    </td>
+                    <td>
+                      <div className="user-name">
+                        <strong>{user.first_name} {user.last_name}</strong>
+                        <span className="user-gender">{user.gender}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="username">{user.username}</span>
+                    </td>
+                    <td>
+                      <span className={getRoleBadgeClass(user.role)}>
+                        {user.role}
+                      </span>
+                    </td>
+                    <td>{user.nic}</td>
+                    <td>
+                      <span className="branch-id">{user.branch_id}</span>
+                    </td>
+                    <td>
+                      <span className="join-date">{formatDate(user.created_at)}</span>
+                    </td>
+                    <td>
+                      <div className="action-buttons">
+                        <button 
+                          className="btn btn-danger btn-sm"
+                          onClick={() => handleDeleteUser(user.employee_id, `${user.first_name} ${user.last_name}`)}
+                          disabled={isDeleting === user.employee_id}
+                          title={`Delete ${user.first_name} ${user.last_name}`}
+                        >
+                          {isDeleting === user.employee_id ? (
+                            <span className="loading-spinner"></span>
+                          ) : (
+                            'Delete'
+                          )}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
@@ -263,7 +319,7 @@ const UserManagement: React.FC = () => {
       {/* Add User Modal */}
       {isAddingUser && (
         <div className="modal-overlay">
-          <div className="modal-content">
+          <div className="modal-content large-modal">
             <div className="modal-header">
               <h4>Add New User</h4>
               <button 
@@ -277,7 +333,7 @@ const UserManagement: React.FC = () => {
             <form className="user-form" onSubmit={handleAddUser}>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Role:</label>
+                  <label>Role *</label>
                   <select 
                     name="role" 
                     value={formData.role} 
@@ -290,13 +346,14 @@ const UserManagement: React.FC = () => {
                 </div>
 
                 <div className="form-group">
-                  <label>Username:</label>
+                  <label>Username *</label>
                   <input
                     type="text"
                     name="username"
                     value={formData.username}
                     onChange={handleInputChange}
                     required
+                    placeholder="Enter unique username"
                     className={errors.username ? 'error' : ''}
                   />
                   {errors.username && <span className="error-text">{errors.username}</span>}
@@ -304,13 +361,14 @@ const UserManagement: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label>Password:</label>
+                <label>Password *</label>
                 <input
                   type="password"
                   name="password"
                   value={formData.password}
                   onChange={handleInputChange}
                   required
+                  placeholder="Minimum 6 characters"
                   className={errors.password ? 'error' : ''}
                 />
                 {errors.password && <span className="error-text">{errors.password}</span>}
@@ -318,26 +376,28 @@ const UserManagement: React.FC = () => {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>First Name:</label>
+                  <label>First Name *</label>
                   <input
                     type="text"
                     name="first_name"
                     value={formData.first_name}
                     onChange={handleInputChange}
                     required
+                    placeholder="Enter first name"
                     className={errors.first_name ? 'error' : ''}
                   />
                   {errors.first_name && <span className="error-text">{errors.first_name}</span>}
                 </div>
 
                 <div className="form-group">
-                  <label>Last Name:</label>
+                  <label>Last Name *</label>
                   <input
                     type="text"
                     name="last_name"
                     value={formData.last_name}
                     onChange={handleInputChange}
                     required
+                    placeholder="Enter last name"
                     className={errors.last_name ? 'error' : ''}
                   />
                   {errors.last_name && <span className="error-text">{errors.last_name}</span>}
@@ -345,13 +405,14 @@ const UserManagement: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label>NIC:</label>
+                <label>NIC *</label>
                 <input
                   type="text"
                   name="nic"
                   value={formData.nic}
                   onChange={handleInputChange}
                   required
+                  placeholder="Enter NIC number"
                   className={errors.nic ? 'error' : ''}
                 />
                 {errors.nic && <span className="error-text">{errors.nic}</span>}
@@ -359,7 +420,7 @@ const UserManagement: React.FC = () => {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Gender:</label>
+                  <label>Gender *</label>
                   <select 
                     name="gender" 
                     value={formData.gender} 
@@ -373,7 +434,7 @@ const UserManagement: React.FC = () => {
                 </div>
 
                 <div className="form-group">
-                  <label>Date of Birth:</label>
+                  <label>Date of Birth *</label>
                   <input
                     type="date"
                     name="date_of_birth"
@@ -386,26 +447,28 @@ const UserManagement: React.FC = () => {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Branch ID:</label>
+                  <label>Branch ID *</label>
                   <input
                     type="text"
                     name="branch_id"
                     value={formData.branch_id}
                     onChange={handleInputChange}
                     required
+                    placeholder="e.g., BR001"
                     className={errors.branch_id ? 'error' : ''}
                   />
                   {errors.branch_id && <span className="error-text">{errors.branch_id}</span>}
                 </div>
 
                 <div className="form-group">
-                  <label>Contact ID:</label>
+                  <label>Contact ID *</label>
                   <input
                     type="text"
                     name="contact_id"
                     value={formData.contact_id}
                     onChange={handleInputChange}
                     required
+                    placeholder="e.g., CT001"
                     className={errors.contact_id ? 'error' : ''}
                   />
                   {errors.contact_id && <span className="error-text">{errors.contact_id}</span>}
@@ -425,7 +488,14 @@ const UserManagement: React.FC = () => {
                   className="btn btn-primary"
                   disabled={isLoading}
                 >
-                  {isLoading ? 'Creating User...' : 'Create User'}
+                  {isLoading ? (
+                    <>
+                      <span className="loading-spinner"></span>
+                      Creating User...
+                    </>
+                  ) : (
+                    'Create User'
+                  )}
                 </button>
               </div>
             </form>
