@@ -17,7 +17,7 @@ const pool = new Pool({
   user: 'postgres',
   host: 'localhost',
   database: 'microbanking',
-  password: '123',
+  password: 'praveen123',
   port: 5432,
 });
 
@@ -30,6 +30,26 @@ pool.connect((err, client, release) => {
   console.log('Connected to PostgreSQL database');
   release();
 });
+
+(async () => {
+  try {
+    const res = await pool.query('SELECT current_database(), current_schema()');
+    console.log('Connected to DB:', res.rows);
+
+    const tables = await pool.query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public';
+    `);
+    console.log('Tables in public schema:', tables.rows);
+
+    const users = await pool.query('SELECT * FROM employee LIMIT 5');
+    console.log('Sample users:', users.rows);
+  } catch (err) {
+    console.error('DB check error:', err);
+  }
+})();
+
 
 // Admin-only registration endpoint
 app.post('/api/admin/register', async (req, res) => {

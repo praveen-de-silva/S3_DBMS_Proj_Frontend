@@ -1,5 +1,5 @@
 -- Create database (run this first as postgres user)
--- CREATE DATABASE microbanking;
+CREATE DATABASE microbanking;
 
 -- Connect to the database
 \c microbanking;
