@@ -6,13 +6,10 @@ interface Branch {
   name: string;
   contact_id: string;
   created_at: string;
-  contact?: {
-    contact_id: string;
-    contact_no_1: string;
-    contact_no_2: string;
-    address: string;
-    email: string;
-  };
+  contact_no_1: string;
+  contact_no_2: string;
+  address: string;
+  email: string;
 }
 
 interface BranchFormData {
@@ -260,18 +257,18 @@ const BranchManagement: React.FC = () => {
                     </td>
                     <td>
                       <div className="contact-info">
-                        <div className="primary-contact">{branch.contact?.contact_no_1}</div>
-                        {branch.contact?.contact_no_2 && (
-                          <div className="secondary-contact">{branch.contact.contact_no_2}</div>
+                        <div className="primary-contact">{branch.contact_no_1}</div>
+                        {branch.contact_no_2 && (
+                          <div className="secondary-contact">{branch.contact_no_2}</div>
                         )}
                       </div>
                     </td>
                     <td>
-                      <span className="branch-email">{branch.contact?.email}</span>
+                      <span className="branch-email">{branch.email}</span>
                     </td>
                     <td>
-                      <span className="branch-address" title={branch.contact?.address}>
-                        {branch.contact?.address}
+                      <span className="branch-address" title={branch.address}>
+                        {branch.address}
                       </span>
                     </td>
                     <td>

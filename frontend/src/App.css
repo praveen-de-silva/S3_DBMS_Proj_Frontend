@@ -20,8 +20,8 @@
   
   /* Text Colors */
   --text-primary: #212529;
-  --text-secondary: #6c757d;
-  --text-light: #adb5bd;
+  --text-secondary: #123c62;
+  --text-light: #243343;
   --text-white: #ffffff;
   
   /* Background Colors */
@@ -87,7 +87,7 @@ body, html {
 
 /* ===== TYPOGRAPHY ===== */
 h1, h2, h3, h4, h5, h6 {
-  color: #e7f3ff;
+  color: #ffffff;
   margin-bottom: var(--spacing-md);
   font-weight: 600;
   line-height: 1.3;
@@ -1059,6 +1059,192 @@ tbody tr:hover {
   .performance-badge {
     margin-left: 0;
     margin-top: var(--spacing-sm);
+  }
+}
+/* ===== AGENT PERFORMANCE GRID STYLES ===== */
+
+.agent-performance {
+  padding: var(--spacing-xl);
+}
+
+/* Performance Grid (already exists, keeping for reference) */
+.performance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-xl);
+}
+
+.performance-card {
+  background: var(--bg-white);
+  padding: var(--spacing-lg);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-md);
+  text-align: center;
+  border-top: 4px solid var(--accent-color);
+  transition: var(--transition);
+}
+
+.performance-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.performance-icon {
+  font-size: 2em;
+  margin-bottom: var(--spacing-md);
+}
+
+.performance-card h4 {
+  margin: 0 0 var(--spacing-md) 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.performance-value {
+  font-size: var(--font-size-xxl);
+  font-weight: 700;
+  color: var(--primary-color);
+  margin: var(--spacing-md) 0;
+  line-height: 1;
+}
+
+.performance-card p {
+  margin: 0;
+  color: var(--text-light);
+  font-size: var(--font-size-sm);
+}
+
+/* Recent Activity Grid */
+.recent-activity {
+  background: var(--bg-white);
+  padding: var(--spacing-lg);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.activity-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-lg);
+  padding-bottom: var(--spacing-md);
+  border-bottom: 2px solid var(--secondary-color);
+}
+
+.activity-header h4 {
+  margin: 0;
+  color: var(--primary-color);
+}
+
+.activity-count {
+  color: var(--text-light);
+  font-size: var(--font-size-sm);
+  background: var(--secondary-color);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: 12px;
+}
+
+.activity-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--spacing-md);
+}
+
+.activity-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--secondary-color);
+  border-radius: var(--border-radius);
+  border-left: 4px solid var(--accent-color);
+  transition: var(--transition);
+}
+
+.activity-card:hover {
+  background: var(--secondary-dark);
+  transform: translateY(-1px);
+}
+
+.activity-icon {
+  font-size: 1.5em;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.activity-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.activity-description {
+  margin: 0 0 var(--spacing-xs) 0;
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.activity-time {
+  font-size: var(--font-size-xs);
+  color: var(--text-light);
+}
+
+.no-activity {
+  text-align: center;
+  padding: var(--spacing-xl);
+  color: var(--text-light);
+  background: var(--secondary-color);
+  border-radius: var(--border-radius);
+  border: 2px dashed var(--border-color);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .activity-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .activity-header {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    align-items: flex-start;
+  }
+  
+  .activity-count {
+    align-self: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .agent-performance {
+    padding: var(--spacing-md);
+  }
+  
+  .performance-grid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-md);
+  }
+  
+  .recent-activity {
+    padding: var(--spacing-md);
+  }
+  
+  .activity-card {
+    flex-direction: column;
+    text-align: center;
+    gap: var(--spacing-sm);
+  }
+  
+  .activity-icon {
+    align-self: center;
   }
 }
 

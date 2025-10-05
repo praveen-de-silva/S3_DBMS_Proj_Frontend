@@ -111,20 +111,23 @@ const AgentPerformance: React.FC = () => {
       </div>
 
       <div className="recent-activity">
-        <h4>Recent Activity</h4>
+        <div className="activity-header">
+          <h4>Recent Activity</h4>
+          <span className="activity-count">{performanceData.recent_activity.length} activities</span>
+        </div>
         {performanceData.recent_activity.length === 0 ? (
           <div className="no-activity">
             <p>No recent activity to display</p>
           </div>
         ) : (
-          <div className="activity-list">
+          <div className="activity-grid">
             {performanceData.recent_activity.map((activity, index) => (
-              <div key={index} className="activity-item">
+              <div key={index} className="activity-card">
                 <div className="activity-icon">
                   {activity.type === 'transaction' ? '💸' : 
                    activity.type === 'customer' ? '👤' : '🏦'}
                 </div>
-                <div className="activity-details">
+                <div className="activity-content">
                   <p className="activity-description">{activity.description}</p>
                   <span className="activity-time">{formatDateTime(activity.time)}</span>
                 </div>

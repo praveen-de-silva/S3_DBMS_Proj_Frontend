@@ -93,7 +93,7 @@ const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) => {
           )}
           
           <form className="auth-form" onSubmit={handleLogin}>
-            <h2>Login</h2>
+            <p>Welcome</p>
             <div className="form-group">
               <label>Username:</label>
               <input
