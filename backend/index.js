@@ -1028,3 +1028,311 @@ app.get('/api/agent/performance', async (req, res) => {
     res.status(401).json({ message: 'Invalid or expired token' });
   }
 });
+
+// Get manager's team agents and their performance
+app.get('/api/manager/team/agents', async (req, res) => {
+  // Verify manager authorization
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ message: 'Authorization required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, 'your_jwt_secret');
+    if (decoded.role !== 'Manager' && decoded.role !== 'Admin') {
+      return res.status(403).json({ message: 'Manager access required' });
+    }
+
+    const client = await pool.connect();
+    try {
+      // Get manager's branch
+      const managerResult = await client.query(
+        'SELECT branch_id FROM employee WHERE employee_id = $1',
+        [decoded.id]
+      );
+
+      if (managerResult.rows.length === 0) {
+        return res.status(404).json({ message: 'Manager not found' });
+      }
+
+      const branchId = managerResult.rows[0].branch_id;
+
+      // Get agents in the same branch
+      const agentsResult = await client.query(`
+        SELECT 
+          e.employee_id, e.username, e.first_name, e.last_name, e.role,
+          e.nic, e.gender, e.date_of_birth, e.branch_id, e.contact_id, e.created_at,
+          c.contact_no_1, c.contact_no_2, c.email, c.address
+        FROM employee e
+        LEFT JOIN contact c ON e.contact_id = c.contact_id
+        WHERE e.branch_id = $1 AND e.role = 'Agent'
+        ORDER BY e.first_name, e.last_name
+      `, [branchId]);
+
+      // Get performance data for each agent
+      const performanceData = {};
+      for (const agent of agentsResult.rows) {
+        const performanceResult = await client.query(`
+          SELECT 
+            COUNT(*) as total_transactions,
+            COALESCE(SUM(amount), 0) as total_volume,
+            COUNT(DISTINCT t.customer_id) as customers_registered,
+            COUNT(DISTINCT a.account_id) as accounts_created,
+            MAX(tr.time) as last_activity
+          FROM transaction tr
+          LEFT JOIN account a ON tr.account_id = a.account_id
+          LEFT JOIN takes t ON a.account_id = t.account_id
+          WHERE tr.employee_id = $1
+        `, [agent.employee_id]);
+
+        performanceData[agent.employee_id] = {
+          total_transactions: parseInt(performanceResult.rows[0].total_transactions),
+          total_volume: parseFloat(performanceResult.rows[0].total_volume),
+          customers_registered: parseInt(performanceResult.rows[0].customers_registered),
+          accounts_created: parseInt(performanceResult.rows[0].accounts_created),
+          last_activity: performanceResult.rows[0].last_activity
+        };
+      }
+
+      res.json({
+        agents: agentsResult.rows,
+        performance: performanceData
+      });
+    } catch (error) {
+      console.error('Database error:', error);
+      res.status(500).json({ message: 'Database error' });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Authentication error:', error);
+    res.status(401).json({ message: 'Invalid or expired token' });
+  }
+});
+
+// Get specific agent's transactions
+app.get('/api/manager/team/agents/:agentId/transactions', async (req, res) => {
+  // Verify manager authorization
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ message: 'Authorization required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, 'your_jwt_secret');
+    if (decoded.role !== 'Manager' && decoded.role !== 'Admin') {
+      return res.status(403).json({ message: 'Manager access required' });
+    }
+
+    const { agentId } = req.params;
+    const client = await pool.connect();
+    try {
+      const transactionsResult = await client.query(`
+        SELECT 
+          transaction_id, transaction_type, amount, time, description, account_id, employee_id
+        FROM transaction 
+        WHERE employee_id = $1
+        ORDER BY time DESC
+        LIMIT 50
+      `, [agentId]);
+
+      res.json({
+        transactions: transactionsResult.rows
+      });
+    } catch (error) {
+      console.error('Database error:', error);
+      res.status(500).json({ message: 'Database error' });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Authentication error:', error);
+    res.status(401).json({ message: 'Invalid or expired token' });
+  }
+});
+
+// Get branch transactions with filters
+app.get('/api/manager/transactions', async (req, res) => {
+  // Verify manager authorization
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ message: 'Authorization required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, 'your_jwt_secret');
+    if (decoded.role !== 'Manager' && decoded.role !== 'Admin') {
+      return res.status(403).json({ message: 'Manager access required' });
+    }
+
+    const { start, end } = req.query;
+    const client = await pool.connect();
+    try {
+      // Get manager's branch
+      const managerResult = await client.query(
+        'SELECT branch_id FROM employee WHERE employee_id = $1',
+        [decoded.id]
+      );
+
+      if (managerResult.rows.length === 0) {
+        return res.status(404).json({ message: 'Manager not found' });
+      }
+
+      const branchId = managerResult.rows[0].branch_id;
+
+      // Get transactions for the branch with agent names
+      const transactionsResult = await client.query(`
+        SELECT 
+          t.transaction_id, t.transaction_type, t.amount, t.time, t.description,
+          t.account_id, t.employee_id,
+          e.first_name || ' ' || e.last_name as employee_name
+        FROM transaction t
+        JOIN employee e ON t.employee_id = e.employee_id
+        JOIN account a ON t.account_id = a.account_id
+        WHERE a.branch_id = $1 
+        AND DATE(t.time) BETWEEN $2 AND $3
+        ORDER BY t.time DESC
+        LIMIT 100
+      `, [branchId, start, end]);
+
+      // Get summary data
+      const summaryResult = await client.query(`
+        SELECT 
+          COUNT(*) as transaction_count,
+          COALESCE(SUM(CASE WHEN transaction_type = 'Deposit' THEN amount ELSE 0 END), 0) as total_deposits,
+          COALESCE(SUM(CASE WHEN transaction_type = 'Withdrawal' THEN amount ELSE 0 END), 0) as total_withdrawals,
+          COALESCE(SUM(CASE WHEN transaction_type = 'Deposit' THEN amount ELSE -amount END), 0) as net_flow
+        FROM transaction t
+        JOIN account a ON t.account_id = a.account_id
+        WHERE a.branch_id = $1 AND DATE(t.time) BETWEEN $2 AND $3
+      `, [branchId, start, end]);
+
+      // Get agent summary
+      const agentSummaryResult = await client.query(`
+        SELECT 
+          e.employee_id,
+          e.first_name || ' ' || e.last_name as employee_name,
+          COUNT(*) as transaction_count,
+          COALESCE(SUM(t.amount), 0) as total_volume
+        FROM transaction t
+        JOIN employee e ON t.employee_id = e.employee_id
+        JOIN account a ON t.account_id = a.account_id
+        WHERE a.branch_id = $1 AND DATE(t.time) BETWEEN $2 AND $3
+        GROUP BY e.employee_id, e.first_name, e.last_name
+        ORDER BY total_volume DESC
+      `, [branchId, start, end]);
+
+      const summary = {
+        total_deposits: parseFloat(summaryResult.rows[0].total_deposits),
+        total_withdrawals: parseFloat(summaryResult.rows[0].total_withdrawals),
+        net_flow: parseFloat(summaryResult.rows[0].net_flow),
+        transaction_count: parseInt(summaryResult.rows[0].transaction_count),
+        agent_summary: agentSummaryResult.rows.map(row => ({
+          employee_id: row.employee_id,
+          employee_name: row.employee_name,
+          transaction_count: parseInt(row.transaction_count),
+          total_volume: parseFloat(row.total_volume)
+        }))
+      };
+
+      res.json({
+        transactions: transactionsResult.rows,
+        summary: summary
+      });
+    } catch (error) {
+      console.error('Database error:', error);
+      res.status(500).json({ message: 'Database error' });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Authentication error:', error);
+    res.status(401).json({ message: 'Invalid or expired token' });
+  }
+});
+
+// Get customer accounts for manager's branch
+app.get('/api/manager/accounts', async (req, res) => {
+  // Verify manager authorization
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ message: 'Authorization required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, 'your_jwt_secret');
+    if (decoded.role !== 'Manager' && decoded.role !== 'Admin') {
+      return res.status(403).json({ message: 'Manager access required' });
+    }
+
+    const client = await pool.connect();
+    try {
+      // Get manager's branch
+      const managerResult = await client.query(
+        'SELECT branch_id FROM employee WHERE employee_id = $1',
+        [decoded.id]
+      );
+
+      if (managerResult.rows.length === 0) {
+        return res.status(404).json({ message: 'Manager not found' });
+      }
+
+      const branchId = managerResult.rows[0].branch_id;
+
+      // Get accounts with customer and saving plan details
+      const accountsResult = await client.query(`
+        SELECT 
+          a.account_id,
+          a.open_date,
+          a.account_status,
+          a.balance,
+          a.branch_id,
+          a.saving_plan_id,
+          c.customer_id,
+          c.first_name,
+          c.last_name,
+          c.nic,
+          c.gender,
+          c.date_of_birth,
+          ct.contact_no_1,
+          ct.email,
+          ct.address,
+          sp.plan_type,
+          sp.interest,
+          sp.min_balance
+        FROM account a
+        JOIN takes t ON a.account_id = t.account_id
+        JOIN customer c ON t.customer_id = c.customer_id
+        JOIN contact ct ON c.contact_id = ct.contact_id
+        LEFT JOIN savingplan sp ON a.saving_plan_id = sp.saving_plan_id
+        WHERE a.branch_id = $1
+        ORDER BY a.balance DESC
+      `, [branchId]);
+
+      // Calculate summary statistics
+      const activeAccounts = accountsResult.rows.filter(acc => acc.account_status === 'Active');
+      const totalBalance = activeAccounts.reduce((sum, acc) => sum + parseFloat(acc.balance), 0);
+      
+      const summary = {
+        total_accounts: accountsResult.rows.length,
+        active_accounts: activeAccounts.length,
+        inactive_accounts: accountsResult.rows.length - activeAccounts.length,
+        total_balance: totalBalance,
+        average_balance: activeAccounts.length > 0 ? totalBalance / activeAccounts.length : 0
+      };
+
+      res.json({
+        accounts: accountsResult.rows,
+        summary: summary
+      });
+    } catch (error) {
+      console.error('Database error:', error);
+      res.status(500).json({ message: 'Database error' });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Authentication error:', error);
+    res.status(401).json({ message: 'Invalid or expired token' });
+  }
+});
