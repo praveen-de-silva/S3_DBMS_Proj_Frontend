@@ -32,6 +32,7 @@ pool.connect((err, client, release) => {
 });
 
 // Admin-only registration endpoint
+// Update the /api/admin/register endpoint
 app.post('/api/admin/register', async (req, res) => {
   // Verify admin authorization
   const token = req.headers.authorization?.split(' ')[1];
@@ -45,11 +46,31 @@ app.post('/api/admin/register', async (req, res) => {
       return res.status(403).json({ message: 'Admin access required' });
     }
 
-    const { role, username, password, first_name, last_name, nic, gender, date_of_birth, branch_id, contact_id } = req.body;
+    const { 
+      role, 
+      username, 
+      password, 
+      first_name, 
+      last_name, 
+      nic, 
+      gender, 
+      date_of_birth, 
+      branch_id,
+      // Contact fields
+      contact_no_1,
+      contact_no_2,
+      address,
+      email
+    } = req.body;
 
     // Validation - check required fields
-    if (!username || !password || !first_name || !last_name || !nic || !gender || !date_of_birth || !branch_id || !contact_id) {
-      return res.status(400).json({ message: 'All fields are required' });
+    if (!username || !password || !first_name || !last_name || !nic || !gender || !date_of_birth || !branch_id) {
+      return res.status(400).json({ message: 'All basic fields are required' });
+    }
+
+    // Contact validation
+    if (!contact_no_1 || !address || !email) {
+      return res.status(400).json({ message: 'All contact fields are required' });
     }
 
     const client = await pool.connect();
@@ -73,17 +94,38 @@ app.post('/api/admin/register', async (req, res) => {
       const prefix = role.charAt(0).toUpperCase();
       const employee_id = `${prefix}${String(count + 1).padStart(3, '0')}`;
 
+      // Generate contact ID
+      const contactCountQuery = 'SELECT COUNT(*) as count FROM contact';
+      const contactCountResult = await client.query(contactCountQuery);
+      const contactCount = parseInt(contactCountResult.rows[0].count);
+      const contact_id = `CT${String(contactCount + 1).padStart(3, '0')}`;
+
+      // Create contact record
+      const insertContactQuery = `
+        INSERT INTO contact (contact_id, type, contact_no_1, contact_no_2, address, email)
+        VALUES ($1, $2, $3, $4, $5, $6)
+      `;
+      
+      await client.query(insertContactQuery, [
+        contact_id, 
+        'employee', 
+        contact_no_1, 
+        contact_no_2 || null, 
+        address, 
+        email
+      ]);
+
       // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
 
       // Insert new employee
-      const insertQuery = `
+      const insertEmployeeQuery = `
         INSERT INTO employee (employee_id, role, username, password, first_name, last_name, nic, gender, date_of_birth, branch_id, contact_id)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING employee_id
       `;
       
-      const insertResult = await client.query(insertQuery, [
+      const insertResult = await client.query(insertEmployeeQuery, [
         employee_id, role, username, hashedPassword, first_name, last_name, 
         nic, gender, date_of_birth, branch_id, contact_id
       ]);
@@ -92,12 +134,13 @@ app.post('/api/admin/register', async (req, res) => {
       
       res.status(201).json({ 
         message: 'User created successfully',
-        employee_id: insertResult.rows[0].employee_id
+        employee_id: insertResult.rows[0].employee_id,
+        contact_id: contact_id
       });
     } catch (error) {
       await client.query('ROLLBACK');
       console.error('Database error:', error);
-      res.status(500).json({ message: 'Database error' });
+      res.status(500).json({ message: 'Database error: ' + error.message });
     } finally {
       client.release();
     }
@@ -106,7 +149,6 @@ app.post('/api/admin/register', async (req, res) => {
     res.status(401).json({ message: 'Invalid or expired token' });
   }
 });
-
 // Public registration endpoint (REMOVED or DISABLED)
 // Comment out or remove this endpoint to prevent public registration
 /*
@@ -260,4 +302,729 @@ app.get('/api/health', async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+});
+
+// Branch Management APIs
+
+// GET /api/admin/branches - Get all branches with contact info
+app.get('/api/admin/branches', async (req, res) => {
+  // Verify admin authorization
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ message: 'Authorization required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, 'your_jwt_secret');
+    if (decoded.role !== 'Admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        SELECT 
+          b.branch_id,
+          b.name,
+          b.created_at,
+          c.contact_id,
+          c.contact_no_1,
+          c.contact_no_2,
+          c.address,
+          c.email
+        FROM branch b
+        JOIN contact c ON b.contact_id = c.contact_id
+        ORDER BY b.created_at DESC
+      `);
+      
+      res.json({ branches: result.rows });
+    } catch (error) {
+      console.error('Database error:', error);
+      res.status(500).json({ message: 'Database error' });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Authentication error:', error);
+    res.status(401).json({ message: 'Invalid or expired token' });
+  }
+});
+
+// POST /api/admin/branches - Create new branch
+app.post('/api/admin/branches', async (req, res) => {
+  // Verify admin authorization
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ message: 'Authorization required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, 'your_jwt_secret');
+    if (decoded.role !== 'Admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    const { branch_id, name, contact_no_1, contact_no_2, address, email } = req.body;
+
+    // Validation
+    if (!branch_id || !name || !contact_no_1 || !address || !email) {
+      return res.status(400).json({ message: 'All required fields must be provided' });
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // Check if branch already exists
+      const branchCheck = await client.query('SELECT * FROM branch WHERE branch_id = $1', [branch_id]);
+      if (branchCheck.rows.length > 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'Branch ID already exists' });
+      }
+
+      // Generate contact ID
+      const contactCount = await client.query('SELECT COUNT(*) as count FROM contact');
+      const contactId = `CT${String(parseInt(contactCount.rows[0].count) + 1).padStart(3, '0')}`;
+
+      // Create contact record
+      await client.query(
+        `INSERT INTO contact (contact_id, type, contact_no_1, contact_no_2, address, email)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [contactId, 'branch', contact_no_1, contact_no_2 || null, address, email]
+      );
+
+      // Create branch record
+      await client.query(
+        `INSERT INTO branch (branch_id, name, contact_id)
+         VALUES ($1, $2, $3)`,
+        [branch_id, name, contactId]
+      );
+
+      await client.query('COMMIT');
+      
+      res.status(201).json({ 
+        message: 'Branch created successfully',
+        branch_id: branch_id
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Database error:', error);
+      res.status(500).json({ message: 'Database error' });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Authentication error:', error);
+    res.status(401).json({ message: 'Invalid or expired token' });
+  }
+});
+
+// DELETE /api/admin/branches/:id - Delete branch
+app.delete('/api/admin/branches/:id', async (req, res) => {
+  // Verify admin authorization
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ message: 'Authorization required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, 'your_jwt_secret');
+    if (decoded.role !== 'Admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    const { id } = req.params;
+    const client = await pool.connect();
+    
+    try {
+      await client.query('BEGIN');
+
+      // Get contact_id for the branch
+      const branchResult = await client.query('SELECT contact_id FROM branch WHERE branch_id = $1', [id]);
+      if (branchResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ message: 'Branch not found' });
+      }
+
+      const contactId = branchResult.rows[0].contact_id;
+
+      // Check if branch has employees
+      const employeesCheck = await client.query('SELECT COUNT(*) as count FROM employee WHERE branch_id = $1', [id]);
+      if (parseInt(employeesCheck.rows[0].count) > 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'Cannot delete branch with assigned employees. Reassign employees first.' });
+      }
+
+      // Check if branch has accounts
+      const accountsCheck = await client.query('SELECT COUNT(*) as count FROM account WHERE branch_id = $1', [id]);
+      if (parseInt(accountsCheck.rows[0].count) > 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'Cannot delete branch with associated accounts. Transfer accounts first.' });
+      }
+
+      // Delete branch
+      await client.query('DELETE FROM branch WHERE branch_id = $1', [id]);
+      
+      // Delete contact
+      await client.query('DELETE FROM contact WHERE contact_id = $1', [contactId]);
+
+      await client.query('COMMIT');
+      
+      res.json({ message: 'Branch deleted successfully' });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Database error:', error);
+      res.status(500).json({ message: 'Database error' });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Authentication error:', error);
+    res.status(401).json({ message: 'Invalid or expired token' });
+  }
+});
+
+// Customer Registration API - Agent only
+app.post('/api/agent/customers/register', async (req, res) => {
+  // Verify agent authorization
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ message: 'Authorization required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, 'your_jwt_secret');
+    if (decoded.role !== 'Agent' && decoded.role !== 'Admin') {
+      return res.status(403).json({ message: 'Agent access required' });
+    }
+
+    const { first_name, last_name, nic, gender, date_of_birth, contact_no_1, contact_no_2, address, email } = req.body;
+
+    // Validation
+    if (!first_name || !last_name || !nic || !gender || !date_of_birth || !contact_no_1 || !address || !email) {
+      return res.status(400).json({ message: 'All required fields must be provided' });
+    }
+
+    // Age validation
+    const dob = new Date(date_of_birth);
+    const today = new Date();
+    const age = today.getFullYear() - dob.getFullYear();
+    if (age < 18) {
+      return res.status(400).json({ message: 'Customer must be at least 18 years old' });
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // Check if customer with NIC already exists
+      const customerCheck = await client.query('SELECT * FROM customer WHERE nic = $1', [nic]);
+      if (customerCheck.rows.length > 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'Customer with this NIC already exists' });
+      }
+
+      // Generate customer ID
+      const customerCount = await client.query('SELECT COUNT(*) as count FROM customer');
+      const customerId = `CUST${String(parseInt(customerCount.rows[0].count) + 1).padStart(3, '0')}`;
+
+      // Generate contact ID
+      const contactCount = await client.query('SELECT COUNT(*) as count FROM contact');
+      const contactId = `CT${String(parseInt(contactCount.rows[0].count) + 1).padStart(3, '0')}`;
+
+      // Create contact record
+      await client.query(
+        `INSERT INTO contact (contact_id, type, contact_no_1, contact_no_2, address, email)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [contactId, 'customer', contact_no_1, contact_no_2 || null, address, email]
+      );
+
+      // Create customer record
+      await client.query(
+        `INSERT INTO customer (customer_id, first_name, last_name, gender, nic, date_of_birth, contact_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [customerId, first_name, last_name, gender, nic, date_of_birth, contactId]
+      );
+
+      await client.query('COMMIT');
+      
+      res.status(201).json({ 
+        message: 'Customer registered successfully',
+        customer_id: customerId
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Database error:', error);
+      res.status(500).json({ message: 'Database error' });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Authentication error:', error);
+    res.status(401).json({ message: 'Invalid or expired token' });
+  }
+});
+
+// Get all customers for account creation
+app.get('/api/agent/customers', async (req, res) => {
+  // Verify agent authorization
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ message: 'Authorization required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, 'your_jwt_secret');
+    if (decoded.role !== 'Agent' && decoded.role !== 'Admin') {
+      return res.status(403).json({ message: 'Agent access required' });
+    }
+
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        SELECT customer_id, first_name, last_name, nic 
+        FROM customer 
+        ORDER BY first_name, last_name
+      `);
+      
+      res.json({ customers: result.rows });
+    } catch (error) {
+      console.error('Database error:', error);
+      res.status(500).json({ message: 'Database error' });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Authentication error:', error);
+    res.status(401).json({ message: 'Invalid or expired token' });
+  }
+});
+
+// Get all saving plans
+app.get('/api/saving-plans', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const result = await client.query(`
+      SELECT saving_plan_id, plan_type, interest, min_balance 
+      FROM savingplan 
+      ORDER BY plan_type
+    `);
+    
+    res.json({ saving_plans: result.rows });
+  } catch (error) {
+    console.error('Database error:', error);
+    res.status(500).json({ message: 'Database error' });
+  } finally {
+    client.release();
+  }
+});
+
+// Get all branches
+app.get('/api/branches', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const result = await client.query(`
+      SELECT branch_id, name 
+      FROM branch 
+      ORDER BY name
+    `);
+    
+    res.json({ branches: result.rows });
+  } catch (error) {
+    console.error('Database error:', error);
+    res.status(500).json({ message: 'Database error' });
+  } finally {
+    client.release();
+  }
+});
+
+// Create account for customer
+app.post('/api/agent/accounts/create', async (req, res) => {
+  // Verify agent authorization
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ message: 'Authorization required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, 'your_jwt_secret');
+    if (decoded.role !== 'Agent' && decoded.role !== 'Admin') {
+      return res.status(403).json({ message: 'Agent access required' });
+    }
+
+    const { customer_id, saving_plan_id, initial_deposit, branch_id } = req.body;
+
+    // Validation
+    if (!customer_id || !saving_plan_id || !branch_id || initial_deposit === undefined) {
+      return res.status(400).json({ message: 'All required fields must be provided' });
+    }
+
+    if (initial_deposit < 0) {
+      return res.status(400).json({ message: 'Initial deposit cannot be negative' });
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // Get saving plan details for validation
+      const planResult = await client.query('SELECT * FROM savingplan WHERE saving_plan_id = $1', [saving_plan_id]);
+      if (planResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'Invalid saving plan' });
+      }
+
+      const savingPlan = planResult.rows[0];
+      if (initial_deposit < savingPlan.min_balance) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ 
+          message: `Minimum deposit for ${savingPlan.plan_type} plan is LKR ${savingPlan.min_balance}` 
+        });
+      }
+
+      // Verify customer exists
+      const customerResult = await client.query('SELECT * FROM customer WHERE customer_id = $1', [customer_id]);
+      if (customerResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'Customer not found' });
+      }
+
+      // Verify branch exists
+      const branchResult = await client.query('SELECT * FROM branch WHERE branch_id = $1', [branch_id]);
+      if (branchResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'Branch not found' });
+      }
+
+      // Generate account ID
+      const accountCount = await client.query('SELECT COUNT(*) as count FROM account');
+      const accountId = `ACC${String(parseInt(accountCount.rows[0].count) + 1).padStart(3, '0')}`;
+
+      // Create account record
+      await client.query(
+        `INSERT INTO account (account_id, open_date, account_status, balance, saving_plan_id, branch_id)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [accountId, new Date().toISOString().split('T')[0], 'Active', initial_deposit, saving_plan_id, branch_id]
+      );
+
+      // Create takes relationship
+      const takesCount = await client.query('SELECT COUNT(*) as count FROM takes');
+      const takesId = `T${String(parseInt(takesCount.rows[0].count) + 1).padStart(3, '0')}`;
+
+      await client.query(
+        `INSERT INTO takes (takes_id, customer_id, account_id)
+         VALUES ($1, $2, $3)`,
+        [takesId, customer_id, accountId]
+      );
+
+      // Create initial transaction if deposit > 0
+      if (initial_deposit > 0) {
+        const transactionCount = await client.query('SELECT COUNT(*) as count FROM transaction');
+        const transactionId = `TXN${String(parseInt(transactionCount.rows[0].count) + 1).padStart(3, '0')}`;
+
+        await client.query(
+          `INSERT INTO transaction (transaction_id, transaction_type, amount, time, description, account_id, employee_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [transactionId, 'Deposit', initial_deposit, new Date(), 'Initial Deposit', accountId, decoded.id]
+        );
+      }
+
+      await client.query('COMMIT');
+      
+      res.status(201).json({ 
+        message: 'Account created successfully',
+        account_id: accountId
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Database error:', error);
+      res.status(500).json({ message: 'Database error' });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Authentication error:', error);
+    res.status(401).json({ message: 'Invalid or expired token' });
+  }
+});
+// Get accounts for transaction processing
+app.get('/api/agent/accounts', async (req, res) => {
+  // Verify agent authorization
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ message: 'Authorization required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, 'your_jwt_secret');
+    if (decoded.role !== 'Agent' && decoded.role !== 'Admin') {
+      return res.status(403).json({ message: 'Agent access required' });
+    }
+
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        SELECT 
+          a.account_id,
+          a.balance,
+          a.account_status,
+          c.first_name || ' ' || c.last_name as customer_name
+        FROM account a
+        JOIN takes t ON a.account_id = t.account_id
+        JOIN customer c ON t.customer_id = c.customer_id
+        WHERE a.account_status = 'Active'
+        ORDER BY a.account_id
+      `);
+      
+      res.json({ accounts: result.rows });
+    } catch (error) {
+      console.error('Database error:', error);
+      res.status(500).json({ message: 'Database error' });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Authentication error:', error);
+    res.status(401).json({ message: 'Invalid or expired token' });
+  }
+});
+
+// Process transaction (deposit/withdrawal)
+app.post('/api/agent/transactions/process', async (req, res) => {
+  // Verify agent authorization
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ message: 'Authorization required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, 'your_jwt_secret');
+    if (decoded.role !== 'Agent' && decoded.role !== 'Admin') {
+      return res.status(403).json({ message: 'Agent access required' });
+    }
+
+    const { account_id, transaction_type, amount, description } = req.body;
+
+    // Validation
+    if (!account_id || !transaction_type || amount === undefined || !description) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    if (amount <= 0) {
+      return res.status(400).json({ message: 'Amount must be positive' });
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // Check if account exists and get current balance
+      const accountResult = await client.query(
+        'SELECT * FROM account WHERE account_id = $1 AND account_status = $2',
+        [account_id, 'Active']
+      );
+
+      if (accountResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'Account not found or inactive' });
+      }
+
+      const account = accountResult.rows[0];
+      let newBalance = account.balance;
+
+      // Process based on transaction type
+      if (transaction_type === 'Deposit') {
+        newBalance = parseFloat(account.balance) + parseFloat(amount);
+      } else if (transaction_type === 'Withdrawal') {
+        if (parseFloat(account.balance) < parseFloat(amount)) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ message: 'Insufficient balance' });
+        }
+        newBalance = parseFloat(account.balance) - parseFloat(amount);
+      } else {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'Invalid transaction type' });
+      }
+
+      // Update account balance
+      await client.query(
+        'UPDATE account SET balance = $1 WHERE account_id = $2',
+        [newBalance, account_id]
+      );
+
+      // Generate transaction ID
+      const transactionCount = await client.query('SELECT COUNT(*) as count FROM transaction');
+      const transactionId = `TXN${String(parseInt(transactionCount.rows[0].count) + 1).padStart(3, '0')}`;
+
+      // Create transaction record
+      await client.query(
+        `INSERT INTO transaction (transaction_id, transaction_type, amount, time, description, account_id, employee_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [transactionId, transaction_type, amount, new Date(), description, account_id, decoded.id]
+      );
+
+      await client.query('COMMIT');
+      
+      res.status(201).json({ 
+        message: 'Transaction processed successfully',
+        transaction_id: transactionId,
+        new_balance: newBalance
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Database error:', error);
+      res.status(500).json({ message: 'Database error: ' + error.message });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Authentication error:', error);
+    res.status(401).json({ message: 'Invalid or expired token' });
+  }
+});
+
+// Get recent transactions
+app.get('/api/agent/transactions/recent', async (req, res) => {
+  // Verify agent authorization
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ message: 'Authorization required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, 'your_jwt_secret');
+    if (decoded.role !== 'Agent' && decoded.role !== 'Admin') {
+      return res.status(403).json({ message: 'Agent access required' });
+    }
+
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        SELECT 
+          transaction_id,
+          transaction_type,
+          amount,
+          time,
+          description,
+          account_id,
+          employee_id
+        FROM transaction 
+        ORDER BY time DESC 
+        LIMIT 50
+      `);
+      
+      res.json({ transactions: result.rows });
+    } catch (error) {
+      console.error('Database error:', error);
+      res.status(500).json({ message: 'Database error' });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Authentication error:', error);
+    res.status(401).json({ message: 'Invalid or expired token' });
+  }
+});
+// Get agent performance metrics
+app.get('/api/agent/performance', async (req, res) => {
+  // Verify agent authorization
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ message: 'Authorization required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, 'your_jwt_secret');
+    if (decoded.role !== 'Agent' && decoded.role !== 'Admin') {
+      return res.status(403).json({ message: 'Agent access required' });
+    }
+
+    const client = await pool.connect();
+    try {
+      const employeeId = decoded.id;
+      const today = new Date().toISOString().split('T')[0];
+      const currentMonth = new Date().getMonth() + 1;
+      const currentYear = new Date().getFullYear();
+
+      // Today's transactions count
+      const todayTransactionsResult = await client.query(
+        `SELECT COUNT(*) as count FROM transaction 
+         WHERE employee_id = $1 AND DATE(time) = $2`,
+        [employeeId, today]
+      );
+
+      // Total customers registered by this agent
+      const totalCustomersResult = await client.query(
+        `SELECT COUNT(DISTINCT t.customer_id) as count 
+         FROM takes t
+         JOIN account a ON t.account_id = a.account_id
+         JOIN transaction tr ON a.account_id = tr.account_id
+         WHERE tr.employee_id = $1 AND tr.transaction_type = 'Deposit'`,
+        [employeeId]
+      );
+
+      // Monthly accounts created
+      const monthlyAccountsResult = await client.query(
+        `SELECT COUNT(DISTINCT a.account_id) as count 
+         FROM account a
+         JOIN transaction tr ON a.account_id = tr.account_id
+         WHERE tr.employee_id = $1 AND EXTRACT(MONTH FROM tr.time) = $2 
+         AND EXTRACT(YEAR FROM tr.time) = $3`,
+        [employeeId, currentMonth, currentYear]
+      );
+
+      // Total transaction volume
+      const transactionVolumeResult = await client.query(
+        `SELECT COALESCE(SUM(amount), 0) as total 
+         FROM transaction 
+         WHERE employee_id = $1`,
+        [employeeId]
+      );
+
+      // Recent activity
+      const recentActivityResult = await client.query(
+        `SELECT 
+          'transaction' as type,
+          transaction_type || ' - ' || description as description,
+          time
+         FROM transaction 
+         WHERE employee_id = $1 
+         UNION ALL
+         SELECT 
+          'account' as type,
+          'Account created for ' || c.first_name || ' ' || c.last_name as description,
+          a.open_date as time
+         FROM account a
+         JOIN takes t ON a.account_id = t.account_id
+         JOIN customer c ON t.customer_id = c.customer_id
+         JOIN transaction tr ON a.account_id = tr.account_id
+         WHERE tr.employee_id = $1 AND tr.transaction_type = 'Deposit'
+         ORDER BY time DESC 
+         LIMIT 10`,
+        [employeeId]
+      );
+
+      const performanceData = {
+        today_transactions: parseInt(todayTransactionsResult.rows[0].count),
+        total_customers: parseInt(totalCustomersResult.rows[0].count),
+        monthly_accounts: parseInt(monthlyAccountsResult.rows[0].count),
+        transaction_volume: parseFloat(transactionVolumeResult.rows[0].total),
+        recent_activity: recentActivityResult.rows
+      };
+
+      res.json(performanceData);
+    } catch (error) {
+      console.error('Database error:', error);
+      res.status(500).json({ message: 'Database error' });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Authentication error:', error);
+    res.status(401).json({ message: 'Invalid or expired token' });
+  }
 });

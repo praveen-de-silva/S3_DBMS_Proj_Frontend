@@ -4,51 +4,156 @@
 -- Connect to the database
 \c microbanking;
 
--- Create enum type for role
-CREATE TYPE employee_role AS ENUM ('Manager', 'Agent', 'Admin');
-
--- Create enum type for gender
+-- Create enum types
 CREATE TYPE gender_type AS ENUM ('Male', 'Female', 'Other');
+CREATE TYPE contact_type AS ENUM ('customer', 'employee', 'branch');
+CREATE TYPE account_status_type AS ENUM ('Active', 'Inactive');
+CREATE TYPE plan_type AS ENUM ('Children', 'Teen', 'Adult', 'Senior', 'Joint');
+CREATE TYPE auto_renewal_status_type AS ENUM ('True', 'False');
+CREATE TYPE fd_status_type AS ENUM ('Active', 'Matured', 'Closed');
+CREATE TYPE employee_role AS ENUM ('Manager', 'Agent', 'Admin');
+CREATE TYPE fd_options_type AS ENUM ('6 months', '1 year', '3 years');
+CREATE TYPE transaction_type AS ENUM ('Deposit', 'Withdrawal', 'Interest', 'Transfer');
 
--- Employees table with first_name and last_name
-CREATE TABLE IF NOT EXISTS employee (
+-- Contact table (must be created first as it's referenced by other tables)
+CREATE TABLE IF NOT EXISTS Contact (
+    contact_id VARCHAR(20) PRIMARY KEY,
+    type contact_type NOT NULL,
+    contact_no_1 VARCHAR(15),
+    contact_no_2 VARCHAR(15),
+    address VARCHAR(100),
+    email VARCHAR(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Branch table
+CREATE TABLE IF NOT EXISTS Branch (
+    branch_id VARCHAR(20) PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    contact_id VARCHAR(20) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (contact_id) REFERENCES Contact(contact_id) ON DELETE RESTRICT
+);
+
+-- FDPlan table
+CREATE TABLE IF NOT EXISTS FDPlan (
+    fd_plan_id VARCHAR(20) PRIMARY KEY,
+    fd_options fd_options_type NOT NULL,
+    interest DECIMAL(5,2) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- SavingPlan table
+CREATE TABLE IF NOT EXISTS SavingPlan (
+    saving_plan_id VARCHAR(20) PRIMARY KEY,
+    plan_type plan_type NOT NULL,
+    interest DECIMAL(5,2) NOT NULL,
+    min_balance DECIMAL(10,2) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- FixedDeposit table
+CREATE TABLE IF NOT EXISTS FixedDeposit (
+    fd_id VARCHAR(20) PRIMARY KEY,
+    fd_balance DECIMAL(15,2) NOT NULL,
+    auto_renewal_status auto_renewal_status_type NOT NULL,
+    fd_status fd_status_type NOT NULL,
+    open_date DATE NOT NULL,
+    maturity_date DATE NOT NULL,
+    fd_plan_id VARCHAR(20) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (fd_plan_id) REFERENCES FDPlan(fd_plan_id) ON DELETE RESTRICT
+);
+
+-- Employee table - UPDATED to match frontend
+CREATE TABLE IF NOT EXISTS Employee (
     employee_id VARCHAR(20) PRIMARY KEY,
     role employee_role NOT NULL,
     username VARCHAR(20) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
-    first_name VARCHAR(50) NOT NULL,
-    last_name VARCHAR(50) NOT NULL,
+    first_name VARCHAR(50) NOT NULL,  -- Changed from name
+    last_name VARCHAR(50) NOT NULL,   -- Added
     nic VARCHAR(15) NOT NULL,
     gender gender_type NOT NULL,
     date_of_birth DATE NOT NULL,
     branch_id VARCHAR(20) NOT NULL,
     contact_id VARCHAR(20) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (branch_id) REFERENCES Branch(branch_id) ON DELETE RESTRICT,
+    FOREIGN KEY (contact_id) REFERENCES Contact(contact_id) ON DELETE RESTRICT
 );
 
--- Clear any existing data
-TRUNCATE TABLE employee;
-
--- Insert initial admin user with hashed password for 'admin123'
-INSERT INTO employee (employee_id, role, username, password, first_name, last_name, nic, gender, date_of_birth, branch_id, contact_id)
-VALUES (
-    'ADM001', 
-    'Admin', 
-    'admin', 
-    '$2a$10$gCRXyR0Z5hW53wT1zTIJkeudG4q36a9fmVa.mOaAUDbu2VUHdWuHC', 
-    'System', 
-    'Administrator', 
-    '000000000V', 
-    'Male', 
-    '1990-01-01', 
-    'BR001', 
-    'CT001'
+-- Customer table
+CREATE TABLE IF NOT EXISTS Customer (
+    customer_id VARCHAR(20) PRIMARY KEY,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    gender gender_type NOT NULL,
+    nic VARCHAR(15) NOT NULL,
+    date_of_birth DATE NOT NULL,
+    contact_id VARCHAR(20) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (contact_id) REFERENCES Contact(contact_id) ON DELETE RESTRICT
 );
 
+-- Account table
+CREATE TABLE IF NOT EXISTS Account (
+    account_id VARCHAR(20) PRIMARY KEY,
+    open_date DATE NOT NULL,
+    account_status account_status_type NOT NULL,
+    balance DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+    saving_plan_id VARCHAR(20),
+    fd_id VARCHAR(20),
+    branch_id VARCHAR(20) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (saving_plan_id) REFERENCES SavingPlan(saving_plan_id) ON DELETE SET NULL,
+    FOREIGN KEY (fd_id) REFERENCES FixedDeposit(fd_id) ON DELETE SET NULL,
+    FOREIGN KEY (branch_id) REFERENCES Branch(branch_id) ON DELETE RESTRICT
+);
+
+-- Transaction table - IMPROVED with transaction type
+CREATE TABLE IF NOT EXISTS Transaction (
+    transaction_id VARCHAR(20) PRIMARY KEY,
+    transaction_type transaction_type NOT NULL,
+    amount DECIMAL(12,2) NOT NULL,
+    time TIMESTAMP NOT NULL,
+    description VARCHAR(100),
+    account_id VARCHAR(20) NOT NULL,
+    employee_id VARCHAR(20) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (account_id) REFERENCES Account(account_id) ON DELETE RESTRICT,
+    FOREIGN KEY (employee_id) REFERENCES Employee(employee_id) ON DELETE RESTRICT
+);
+
+-- Takes table (junction table for Customer-Account relationship)
+CREATE TABLE IF NOT EXISTS Takes (
+    takes_id VARCHAR(20) PRIMARY KEY,
+    customer_id VARCHAR(20) NOT NULL,
+    account_id VARCHAR(20) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (customer_id) REFERENCES Customer(customer_id) ON DELETE CASCADE,
+    FOREIGN KEY (account_id) REFERENCES Account(account_id) ON DELETE CASCADE,
+    UNIQUE(customer_id, account_id) -- Prevent duplicate relationships
+);
+
+-- Create sequences for ID generation (Optional but recommended)
+CREATE SEQUENCE IF NOT EXISTS contact_id_seq;
+CREATE SEQUENCE IF NOT EXISTS branch_id_seq;
+CREATE SEQUENCE IF NOT EXISTS employee_id_seq;
+CREATE SEQUENCE IF NOT EXISTS customer_id_seq;
+CREATE SEQUENCE IF NOT EXISTS account_id_seq;
+CREATE SEQUENCE IF NOT EXISTS transaction_id_seq;
 
 -- Create indexes for better performance
-CREATE INDEX idx_employee_username ON employee(username);
-CREATE INDEX idx_employee_role ON employee(role);
-
--- Verify the data
-SELECT * FROM employee;
+CREATE INDEX IF NOT EXISTS idx_employee_username ON Employee(username);
+CREATE INDEX IF NOT EXISTS idx_employee_role ON Employee(role);
+CREATE INDEX IF NOT EXISTS idx_customer_nic ON Customer(nic);
+CREATE INDEX IF NOT EXISTS idx_account_status ON Account(account_status);
+CREATE INDEX IF NOT EXISTS idx_account_branch ON Account(branch_id);
+CREATE INDEX IF NOT EXISTS idx_transaction_account ON Transaction(account_id);
+CREATE INDEX IF NOT EXISTS idx_transaction_time ON Transaction(time);
+CREATE INDEX IF NOT EXISTS idx_transaction_employee ON Transaction(employee_id);
+CREATE INDEX IF NOT EXISTS idx_takes_customer ON Takes(customer_id);
+CREATE INDEX IF NOT EXISTS idx_takes_account ON Takes(account_id);
+CREATE INDEX IF NOT EXISTS idx_fixed_deposit_status ON FixedDeposit(fd_status);
+CREATE INDEX IF NOT EXISTS idx_contact_type ON Contact(type);

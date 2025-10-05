@@ -274,12 +274,9 @@ button:disabled {
 }
 
 /* User Management */
+/* Add to your existing CSS */
 .user-management {
-  padding: 24px;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 2px 16px rgba(35, 69, 103, 0.10);
-  margin-bottom: 2rem;
+  padding: 20px;
 }
 
 .section-header {
@@ -289,30 +286,166 @@ button:disabled {
   margin-bottom: 20px;
 }
 
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  padding: 0;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+}
+
+.user-form {
+  padding: 20px;
+}
+
+.form-row {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.form-row .form-group {
+  flex: 1;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: #333;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+.section-divider {
+  margin: 20px 0;
+  padding: 10px 0;
+  border-top: 2px solid #eee;
+  border-bottom: 2px solid #eee;
+}
+
+.section-divider h5 {
+  margin: 0;
+  color: #333;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btn-primary {
+  background: #007bff;
+  color: white;
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Admin Navigation */
+/* Admin Navigation - Updated for 3 sections */
 .admin-nav {
   display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .admin-nav button {
-  padding: 10px 20px;
-  border: 1px solid #cfd8dc;
-  background: #fff;
-  color: #234567;
+  padding: 0.75rem 1.5rem;
+  border: 1px solid var(--border-color);
+  background: var(--background-white);
+  color: var(--primary-color);
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: var(--border-radius);
   font-weight: 500;
-  transition: background 0.2s, color 0.2s;
+  transition: var(--transition);
+  min-width: 160px;
 }
 
 .admin-nav button.active {
-  background: #234567;
-  color: #fff;
-  border-color: #234567;
+  background: var(--primary-color);
+  color: var(--background-white);
+  border-color: var(--primary-color);
 }
 
+/* Responsive admin navigation */
+@media (max-width: 768px) {
+  .admin-nav {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .admin-nav button {
+    min-width: auto;
+  }
+}
 /* Misc */
 .login-info {
   text-align: center;
@@ -792,6 +925,777 @@ button:disabled {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+/* ===== BRANCH MANAGEMENT STYLES ===== */
+.branch-management {
+  padding: 0;
+}
 
+.branches-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.branches-table th {
+  background: var(--secondary-color);
+  color: var(--primary-color);
+  font-weight: 600;
+  text-align: left;
+  padding: 1rem;
+  border-bottom: 2px solid var(--border-color);
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.5px;
+}
+
+.branches-table td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-color);
+  vertical-align: top;
+}
+
+.branch-id {
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
+  color: var(--primary-color);
+  background: var(--secondary-color);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+.contact-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.primary-contact {
+  font-weight: 500;
+  color: var(--primary-color);
+}
+
+.secondary-contact {
+  font-size: 0.8rem;
+  color: var(--text-light);
+}
+
+.branch-email {
+  color: var(--primary-color);
+  word-break: break-all;
+}
+
+.branch-address {
+  color: var(--text-medium);
+  font-size: 0.85rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.created-date {
+  color: var(--text-medium);
+  font-size: 0.85rem;
+}
+
+/* Branch Form Styles */
+.branch-form .form-help {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--text-light);
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+/* Responsive Design for Branch Management */
+@media (max-width: 1024px) {
+  .branches-table {
+    font-size: 0.85rem;
+  }
+  
+  .branches-table th,
+  .branches-table td {
+    padding: 0.75rem 0.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .branches-table {
+    min-width: 900px;
+  }
+  
+  .contact-info {
+    min-width: 120px;
+  }
+}
+
+/* Animation for branch rows */
+@keyframes slideInBranch {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.branches-table tbody tr {
+  animation: slideInBranch 0.3s ease-out;
+}
+
+/* Zebra striping for branches table */
+.branches-table tbody tr:nth-child(even) {
+  background: #fafbfc;
+}
+
+.branches-table tbody tr:nth-child(even):hover {
+  background: #f1f3f4;
+}
+/* ===== REPORTS SECTION STYLES ===== */
+.reports-section {
+  padding: 1.5rem;
+}
+
+.reports-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.report-card {
+  background: var(--background-white);
+  padding: 1.5rem;
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-medium);
+  border: 1px solid var(--border-color);
+  text-align: center;
+  transition: var(--transition);
+}
+
+.report-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-heavy);
+}
+
+.report-card h4 {
+  color: var(--primary-color);
+  margin-bottom: 0.5rem;
+}
+
+.report-card p {
+  color: var(--text-medium);
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.report-card .btn {
+  width: 100%;
+}
+/* ===== CUSTOMER REGISTRATION STYLES ===== */
+.customer-registration {
+  padding: 0;
+}
+
+.registration-form-container {
+  background: var(--background-white);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-medium);
+  overflow: hidden;
+}
+
+.registration-form {
+  padding: 2rem;
+}
+
+.form-section {
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.form-section:last-of-type {
+  border-bottom: none;
+  margin-bottom: 1rem;
+}
+
+.form-section h4 {
+  color: var(--primary-color);
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--secondary-color);
+}
+
+.form-help {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--text-light);
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+.section-placeholder {
+  text-align: center;
+  padding: 3rem 2rem;
+  background: var(--background-white);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-medium);
+}
+
+.section-placeholder h3 {
+  color: var(--primary-color);
+  margin-bottom: 1rem;
+}
+
+.section-placeholder p {
+  color: var(--text-medium);
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+/* Enhanced form styling */
+.registration-form .form-group {
+  margin-bottom: 1.25rem;
+}
+
+.registration-form .form-row {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0;
+}
+
+.registration-form .form-row .form-group {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+/* Responsive design for customer registration */
+@media (max-width: 768px) {
+  .registration-form {
+    padding: 1.5rem;
+  }
+  
+  .registration-form .form-row {
+    flex-direction: column;
+    gap: 0;
+  }
+  
+  .form-section {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .registration-form {
+    padding: 1rem;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+  }
+  
+  .form-actions .btn {
+    width: 100%;
+  }
+}
+
+/* Animation for form sections */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.form-section {
+  animation: fadeInUp 0.4s ease-out;
+}
+/* ===== ACCOUNT CREATION STYLES ===== */
+.account-creation {
+  padding: 0;
+}
+
+.account-form-container {
+  background: var(--background-white);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-medium);
+  overflow: hidden;
+}
+
+.account-form {
+  padding: 2rem;
+}
+
+.customer-info-card {
+  background: var(--secondary-color);
+  padding: 1rem;
+  border-radius: var(--border-radius);
+  margin-top: 1rem;
+  border-left: 4px solid var(--primary-color);
+}
+
+.customer-info-card h5 {
+  margin: 0 0 0.5rem 0;
+  color: var(--primary-color);
+}
+
+.customer-info-card p {
+  margin: 0.25rem 0;
+  font-size: 0.9rem;
+}
+
+.account-summary {
+  background: #e8f5e8;
+  padding: 1.5rem;
+  border-radius: var(--border-radius);
+  border: 1px solid #c3e6cb;
+  margin-top: 1rem;
+}
+
+.account-summary h5 {
+  margin: 0 0 1rem 0;
+  color: #155724;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.summary-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #c3e6cb;
+}
+
+.summary-item:last-child {
+  border-bottom: none;
+}
+
+.summary-item span {
+  color: #155724;
+  font-weight: 500;
+}
+
+.summary-item strong {
+  color: var(--primary-color);
+}
+
+/* Responsive design for account creation */
+@media (max-width: 768px) {
+  .account-form {
+    padding: 1.5rem;
+  }
+  
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .customer-info-card {
+    padding: 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .account-form {
+    padding: 1rem;
+  }
+}
+
+/* Enhanced form styling for account creation */
+.account-form .form-group select {
+  background: var(--background-white);
+}
+
+.account-form .customer-info-card {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+.account-form .account-summary {
+  animation: fadeInUp 0.3s ease-out;
+}
+/* Transaction Processing Styles */
+.transaction-processing {
+  padding: 20px;
+}
+
+.tabs {
+  display: flex;
+  border-bottom: 1px solid #ddd;
+  margin-bottom: 20px;
+}
+
+.tab {
+  padding: 12px 24px;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  font-size: 14px;
+  color: #666;
+  transition: all 0.3s ease;
+}
+
+.tab.active {
+  color: #007bff;
+  border-bottom-color: #007bff;
+  background-color: #f8f9fa;
+}
+
+.tab-content {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.transaction-form-container {
+  max-width: 600px;
+  background: white;
+  padding: 30px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.account-info {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  border-left: 4px solid #007bff;
+}
+
+.balance-display {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.balance-label {
+  font-weight: bold;
+  color: #333;
+}
+
+.balance-amount {
+  font-size: 18px;
+  font-weight: bold;
+  color: #28a745;
+}
+
+.account-status {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.account-status.active {
+  background: #d4edda;
+  color: #155724;
+}
+
+.account-status.inactive {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.transaction-summary {
+  background: #e7f3ff;
+  padding: 20px;
+  border-radius: 6px;
+  margin: 20px 0;
+  border: 1px solid #b3d7ff;
+}
+
+.transaction-summary h5 {
+  margin: 0 0 15px 0;
+  color: #0066cc;
+}
+
+.summary-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+}
+
+.summary-row .amount {
+  font-weight: bold;
+  color: #28a745;
+}
+
+.summary-row .new-balance {
+  font-weight: bold;
+  color: #007bff;
+  font-size: 16px;
+}
+
+.transaction-type {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.transaction-type.deposit {
+  background: #d4edda;
+  color: #155724;
+}
+
+.transaction-type.withdrawal {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.transaction-type.interest {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.transactions-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.transactions-table th {
+  background: #f8f9fa;
+  padding: 12px;
+  text-align: left;
+  font-weight: bold;
+  color: #333;
+  border-bottom: 1px solid #ddd;
+}
+
+.transactions-table td {
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.transactions-table tr:hover {
+  background: #f8f9fa;
+}
+
+.amount.deposit {
+  color: #28a745;
+  font-weight: bold;
+}
+
+.amount.withdrawal {
+  color: #dc3545;
+  font-weight: bold;
+}
+
+.description {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.datetime {
+  color: #666;
+  font-size: 12px;
+}
+
+/* Form improvements */
+.transaction-form textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .tabs {
+    flex-direction: column;
+  }
+  
+  .tab {
+    border-bottom: 1px solid #ddd;
+    border-left: 3px solid transparent;
+  }
+  
+  .tab.active {
+    border-left-color: #007bff;
+    border-bottom-color: #ddd;
+  }
+  
+  .balance-display {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .transactions-table {
+    font-size: 14px;
+  }
+  
+  .transactions-table th,
+  .transactions-table td {
+    padding: 8px 4px;
+  }
+}
+
+/* Agent Performance Styles */
+.agent-performance {
+  padding: 20px;
+}
+
+.performance-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #666;
+}
+
+.performance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.performance-card {
+  background: white;
+  padding: 25px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  text-align: center;
+  border-top: 4px solid #007bff;
+  transition: transform 0.2s ease;
+}
+
+.performance-card:hover {
+  transform: translateY(-2px);
+}
+
+.performance-icon {
+  font-size: 2em;
+  margin-bottom: 10px;
+}
+
+.performance-card h4 {
+  margin: 0 0 10px 0;
+  color: #333;
+  font-size: 16px;
+}
+
+.performance-value {
+  font-size: 2em;
+  font-weight: bold;
+  color: #007bff;
+  margin: 10px 0;
+}
+
+.performance-card p {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.recent-activity {
+  background: white;
+  padding: 25px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.recent-activity h4 {
+  margin: 0 0 20px 0;
+  color: #333;
+}
+
+.no-activity {
+  text-align: center;
+  padding: 40px 20px;
+  color: #666;
+}
+
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.activity-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border-left: 4px solid #007bff;
+}
+
+.activity-icon {
+  font-size: 1.5em;
+}
+
+.activity-details {
+  flex: 1;
+}
+
+.activity-description {
+  margin: 0 0 5px 0;
+  font-weight: 500;
+  color: #333;
+}
+
+.activity-time {
+  font-size: 12px;
+  color: #666;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .performance-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .activity-item {
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+  }
+  
+  .activity-icon {
+    align-self: flex-start;
+  }
+}
+.form-section:nth-child(1) { animation-delay: 0.1s; }
+.form-section:nth-child(2) { animation-delay: 0.2s; }
 /* Remove role-specific button colors for unified look */
 /* .admin-dashboard .card button, .manager-dashboard .card button, .agent-dashboard .card button { ... } */

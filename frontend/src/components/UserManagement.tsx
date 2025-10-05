@@ -11,7 +11,11 @@ interface UserFormData {
   gender: string;
   date_of_birth: string;
   branch_id: string;
-  contact_id: string;
+  // Contact fields - no more contact_id
+  contact_no_1: string;
+  contact_no_2: string;
+  address: string;
+  email: string;
 }
 
 interface User {
@@ -49,7 +53,10 @@ const UserManagement: React.FC = () => {
     gender: 'Male',
     date_of_birth: '',
     branch_id: '',
-    contact_id: ''
+    contact_no_1: '',
+    contact_no_2: '',
+    address: '',
+    email: ''
   });
 
   // Fetch users on component mount
@@ -103,8 +110,19 @@ const UserManagement: React.FC = () => {
       newErrors.branch_id = 'Branch ID is required';
     }
     
-    if (!formData.contact_id.trim()) {
-      newErrors.contact_id = 'Contact ID is required';
+    // Contact validation
+    if (!formData.contact_no_1.trim()) {
+      newErrors.contact_no_1 = 'Primary phone number is required';
+    }
+    
+    if (!formData.address.trim()) {
+      newErrors.address = 'Address is required';
+    }
+    
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = 'Email is invalid';
     }
     
     setErrors(newErrors);
@@ -125,6 +143,7 @@ const UserManagement: React.FC = () => {
       });
       
       setSuccessMessage(`User "${formData.first_name} ${formData.last_name}" created successfully! Employee ID: ${response.data.employee_id}`);
+      // Reset form data
       setFormData({
         role: 'Agent',
         username: '',
@@ -135,7 +154,10 @@ const UserManagement: React.FC = () => {
         gender: 'Male',
         date_of_birth: '',
         branch_id: '',
-        contact_id: ''
+        contact_no_1: '',
+        contact_no_2: '',
+        address: '',
+        email: ''
       });
       setErrors({});
       setIsAddingUser(false);
@@ -342,6 +364,7 @@ const UserManagement: React.FC = () => {
                   >
                     <option value="Agent">Agent</option>
                     <option value="Manager">Manager</option>
+                    <option value="Admin">Admin</option>
                   </select>
                 </div>
 
@@ -445,34 +468,78 @@ const UserManagement: React.FC = () => {
                 </div>
               </div>
 
+              <div className="form-group">
+                <label>Branch ID *</label>
+                <input
+                  type="text"
+                  name="branch_id"
+                  value={formData.branch_id}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="e.g., BR001"
+                  className={errors.branch_id ? 'error' : ''}
+                />
+                {errors.branch_id && <span className="error-text">{errors.branch_id}</span>}
+              </div>
+
+              {/* Contact Information Section */}
+              <div className="section-divider">
+                <h5>Contact Information</h5>
+              </div>
+
               <div className="form-row">
                 <div className="form-group">
-                  <label>Branch ID *</label>
+                  <label>Primary Phone *</label>
                   <input
-                    type="text"
-                    name="branch_id"
-                    value={formData.branch_id}
+                    type="tel"
+                    name="contact_no_1"
+                    value={formData.contact_no_1}
                     onChange={handleInputChange}
                     required
-                    placeholder="e.g., BR001"
-                    className={errors.branch_id ? 'error' : ''}
+                    placeholder="e.g., 0771234567"
+                    className={errors.contact_no_1 ? 'error' : ''}
                   />
-                  {errors.branch_id && <span className="error-text">{errors.branch_id}</span>}
+                  {errors.contact_no_1 && <span className="error-text">{errors.contact_no_1}</span>}
                 </div>
 
                 <div className="form-group">
-                  <label>Contact ID *</label>
+                  <label>Secondary Phone</label>
                   <input
-                    type="text"
-                    name="contact_id"
-                    value={formData.contact_id}
+                    type="tel"
+                    name="contact_no_2"
+                    value={formData.contact_no_2}
                     onChange={handleInputChange}
-                    required
-                    placeholder="e.g., CT001"
-                    className={errors.contact_id ? 'error' : ''}
+                    placeholder="Optional"
                   />
-                  {errors.contact_id && <span className="error-text">{errors.contact_id}</span>}
                 </div>
+              </div>
+
+              <div className="form-group">
+                <label>Email *</label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="e.g., john.doe@example.com"
+                  className={errors.email ? 'error' : ''}
+                />
+                {errors.email && <span className="error-text">{errors.email}</span>}
+              </div>
+
+              <div className="form-group">
+                <label>Address *</label>
+                <input
+                  type="text"
+                  name="address"
+                  value={formData.address}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="Full address"
+                  className={errors.address ? 'error' : ''}
+                />
+                {errors.address && <span className="error-text">{errors.address}</span>}
               </div>
 
               <div className="form-actions">

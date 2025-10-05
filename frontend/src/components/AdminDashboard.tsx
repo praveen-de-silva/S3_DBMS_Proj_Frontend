@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import UserManagement from './UserManagement';
+import BranchManagement from './BranchManagement';
 
 const AdminDashboard: React.FC = () => {
   const [activeSection, setActiveSection] = useState('users');
@@ -13,46 +14,46 @@ const AdminDashboard: React.FC = () => {
           className={activeSection === 'users' ? 'active' : ''}
           onClick={() => setActiveSection('users')}
         >
-          User Management
-        </button>
-        <button 
-          className={activeSection === 'settings' ? 'active' : ''}
-          onClick={() => setActiveSection('settings')}
-        >
-          System Settings
-        </button>
-        <button 
-          className={activeSection === 'reports' ? 'active' : ''}
-          onClick={() => setActiveSection('reports')}
-        >
-          Reports
+          👥 User Management
         </button>
         <button 
           className={activeSection === 'branches' ? 'active' : ''}
           onClick={() => setActiveSection('branches')}
         >
-          Branch Management
+          🏦 Branch Management
+        </button>
+        <button 
+          className={activeSection === 'reports' ? 'active' : ''}
+          onClick={() => setActiveSection('reports')}
+        >
+          📊 Reports
         </button>
       </div>
 
       <div className="admin-content">
         {activeSection === 'users' && <UserManagement />}
-        {activeSection === 'settings' && (
-          <div className="settings-section">
-            <h3>System Settings</h3>
-            <p>Configure system parameters and preferences.</p>
-          </div>
-        )}
+        {activeSection === 'branches' && <BranchManagement />}
         {activeSection === 'reports' && (
           <div className="reports-section">
             <h3>Reports</h3>
-            <p>View system reports and analytics.</p>
-          </div>
-        )}
-        {activeSection === 'branches' && (
-          <div className="branches-section">
-            <h3>Branch Management</h3>
-            <p>Manage all branches and their configurations.</p>
+            <p>View system reports and analytics. This section will display various banking reports and performance metrics.</p>
+            <div className="reports-grid">
+              <div className="report-card">
+                <h4>Transaction Summary</h4>
+                <p>Overview of all transactions</p>
+                <button className="btn btn-secondary">View Report</button>
+              </div>
+              <div className="report-card">
+                <h4>Customer Activity</h4>
+                <p>Customer engagement metrics</p>
+                <button className="btn btn-secondary">View Report</button>
+              </div>
+              <div className="report-card">
+                <h4>Branch Performance</h4>
+                <p>Branch-wise performance analysis</p>
+                <button className="btn btn-secondary">View Report</button>
+              </div>
+            </div>
           </div>
         )}
       </div>
