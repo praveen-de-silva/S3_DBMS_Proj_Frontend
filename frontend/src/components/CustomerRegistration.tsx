@@ -149,7 +149,7 @@ const CustomerRegistration: React.FC = () => {
     <div className="customer-registration">
       <div className="section-header">
         <div>
-          <h3>Customer Registration</h3>
+          <h4>Customer Registration</h4>
           <p className="section-subtitle">Register new customers for banking services</p>
         </div>
       </div>

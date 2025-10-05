@@ -35,7 +35,7 @@ const AdminDashboard: React.FC = () => {
         {activeSection === 'branches' && <BranchManagement />}
         {activeSection === 'reports' && (
           <div className="reports-section">
-            <h3>Reports</h3>
+            <h4>Reports</h4>
             <p>View system reports and analytics. This section will display various banking reports and performance metrics.</p>
             <div className="reports-grid">
               <div className="report-card">

@@ -183,7 +183,7 @@ const BranchManagement: React.FC = () => {
     <div className="branch-management">
       <div className="section-header">
         <div>
-          <h3>Branch Management</h3>
+          <h4>Branch Management</h4>
           <p className="section-subtitle">Manage bank branches and their contact information</p>
         </div>
         <button 

@@ -72,7 +72,7 @@ const AgentPerformance: React.FC = () => {
     <div className="agent-performance">
       <div className="section-header">
         <div>
-          <h3>My Performance</h3>
+          <h4>My Performance</h4>
           <p className="section-subtitle">Track your performance metrics and recent activity</p>
         </div>
         <button 
@@ -102,12 +102,7 @@ const AgentPerformance: React.FC = () => {
           <div className="performance-value">{performanceData.monthly_accounts}</div>
           <p>Accounts opened this month</p>
         </div>
-        <div className="performance-card">
-          <div className="performance-icon">💰</div>
-          <h4>Transaction Volume</h4>
-          <div className="performance-value">{formatCurrency(performanceData.transaction_volume)}</div>
-          <p>Total amount processed</p>
-        </div>
+        
       </div>
 
       <div className="recent-activity">

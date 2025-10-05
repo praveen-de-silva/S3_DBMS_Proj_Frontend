@@ -567,7 +567,7 @@ app.post('/api/agent/customers/register', async (req, res) => {
   }
 });
 
-// Get all customers for account creation
+// Get all customers for account creation (updated to include date_of_birth)
 app.get('/api/agent/customers', async (req, res) => {
   // Verify agent authorization
   const token = req.headers.authorization?.split(' ')[1];
@@ -584,7 +584,7 @@ app.get('/api/agent/customers', async (req, res) => {
     const client = await pool.connect();
     try {
       const result = await client.query(`
-        SELECT customer_id, first_name, last_name, nic 
+        SELECT customer_id, first_name, last_name, nic, date_of_birth 
         FROM customer 
         ORDER BY first_name, last_name
       `);
@@ -601,7 +601,6 @@ app.get('/api/agent/customers', async (req, res) => {
     res.status(401).json({ message: 'Invalid or expired token' });
   }
 });
-
 // Get all saving plans
 app.get('/api/saving-plans', async (req, res) => {
   const client = await pool.connect();
@@ -640,7 +639,7 @@ app.get('/api/branches', async (req, res) => {
   }
 });
 
-// Create account for customer
+// Create account for customer (with joint account support)
 app.post('/api/agent/accounts/create', async (req, res) => {
   // Verify agent authorization
   const token = req.headers.authorization?.split(' ')[1];
@@ -654,7 +653,7 @@ app.post('/api/agent/accounts/create', async (req, res) => {
       return res.status(403).json({ message: 'Agent access required' });
     }
 
-    const { customer_id, saving_plan_id, initial_deposit, branch_id } = req.body;
+    const { customer_id, saving_plan_id, initial_deposit, branch_id, joint_holders = [] } = req.body;
 
     // Validation
     if (!customer_id || !saving_plan_id || !branch_id || initial_deposit === undefined) {
@@ -678,6 +677,13 @@ app.post('/api/agent/accounts/create', async (req, res) => {
       }
 
       const savingPlan = planResult.rows[0];
+      
+      // Joint account validation
+      if (savingPlan.plan_type === 'Joint' && joint_holders.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'Joint account requires at least one joint holder' });
+      }
+
       if (initial_deposit < savingPlan.min_balance) {
         await client.query('ROLLBACK');
         return res.status(400).json({ 
@@ -685,11 +691,42 @@ app.post('/api/agent/accounts/create', async (req, res) => {
         });
       }
 
-      // Verify customer exists
-      const customerResult = await client.query('SELECT * FROM customer WHERE customer_id = $1', [customer_id]);
+      // Verify primary customer exists and is at least 18 years old
+      const customerResult = await client.query(
+        'SELECT *, EXTRACT(YEAR FROM AGE(date_of_birth)) as age FROM customer WHERE customer_id = $1',
+        [customer_id]
+      );
       if (customerResult.rows.length === 0) {
         await client.query('ROLLBACK');
-        return res.status(400).json({ message: 'Customer not found' });
+        return res.status(400).json({ message: 'Primary customer not found' });
+      }
+
+      const primaryCustomer = customerResult.rows[0];
+      if (parseInt(primaryCustomer.age) < 18) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'Primary account holder must be at least 18 years old' });
+      }
+
+      // Verify joint holders exist and are at least 18 years old
+      if (joint_holders.length > 0) {
+        const jointHoldersResult = await client.query(
+          `SELECT customer_id, first_name, last_name, EXTRACT(YEAR FROM AGE(date_of_birth)) as age 
+           FROM customer WHERE customer_id = ANY($1)`,
+          [joint_holders]
+        );
+
+        if (jointHoldersResult.rows.length !== joint_holders.length) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ message: 'One or more joint holders not found' });
+        }
+
+        const underageJointHolder = jointHoldersResult.rows.find(holder => parseInt(holder.age) < 18);
+        if (underageJointHolder) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ 
+            message: `Joint holder ${underageJointHolder.first_name} ${underageJointHolder.last_name} must be at least 18 years old` 
+          });
+        }
       }
 
       // Verify branch exists
@@ -710,15 +747,27 @@ app.post('/api/agent/accounts/create', async (req, res) => {
         [accountId, new Date().toISOString().split('T')[0], 'Active', initial_deposit, saving_plan_id, branch_id]
       );
 
-      // Create takes relationship
+      // Create takes relationship for primary customer
       const takesCount = await client.query('SELECT COUNT(*) as count FROM takes');
-      const takesId = `T${String(parseInt(takesCount.rows[0].count) + 1).padStart(3, '0')}`;
+      let takesIdCounter = parseInt(takesCount.rows[0].count) + 1;
 
       await client.query(
         `INSERT INTO takes (takes_id, customer_id, account_id)
          VALUES ($1, $2, $3)`,
-        [takesId, customer_id, accountId]
+        [`T${String(takesIdCounter).padStart(3, '0')}`, customer_id, accountId]
       );
+
+      takesIdCounter++;
+
+      // Create takes relationships for joint holders
+      for (const jointCustomerId of joint_holders) {
+        await client.query(
+          `INSERT INTO takes (takes_id, customer_id, account_id)
+           VALUES ($1, $2, $3)`,
+          [`T${String(takesIdCounter).padStart(3, '0')}`, jointCustomerId, accountId]
+        );
+        takesIdCounter++;
+      }
 
       // Create initial transaction if deposit > 0
       if (initial_deposit > 0) {
@@ -736,12 +785,13 @@ app.post('/api/agent/accounts/create', async (req, res) => {
       
       res.status(201).json({ 
         message: 'Account created successfully',
-        account_id: accountId
+        account_id: accountId,
+        joint_holders_count: joint_holders.length
       });
     } catch (error) {
       await client.query('ROLLBACK');
       console.error('Database error:', error);
-      res.status(500).json({ message: 'Database error' });
+      res.status(500).json({ message: 'Database error: ' + error.message });
     } finally {
       client.release();
     }
@@ -750,7 +800,7 @@ app.post('/api/agent/accounts/create', async (req, res) => {
     res.status(401).json({ message: 'Invalid or expired token' });
   }
 });
-// Get accounts for transaction processing
+// Get accounts for transaction processing (FIXED for joint accounts)
 app.get('/api/agent/accounts', async (req, res) => {
   // Verify agent authorization
   const token = req.headers.authorization?.split(' ')[1];
@@ -767,15 +817,16 @@ app.get('/api/agent/accounts', async (req, res) => {
     const client = await pool.connect();
     try {
       const result = await client.query(`
-        SELECT 
+        SELECT DISTINCT
           a.account_id,
           a.balance,
           a.account_status,
-          c.first_name || ' ' || c.last_name as customer_name
+          STRING_AGG(DISTINCT c.first_name || ' ' || c.last_name, ', ') as customer_names
         FROM account a
         JOIN takes t ON a.account_id = t.account_id
         JOIN customer c ON t.customer_id = c.customer_id
         WHERE a.account_status = 'Active'
+        GROUP BY a.account_id, a.balance, a.account_status
         ORDER BY a.account_id
       `);
       
@@ -1151,7 +1202,7 @@ app.get('/api/manager/team/agents/:agentId/transactions', async (req, res) => {
   }
 });
 
-// Get branch transactions with filters
+// Get branch transactions with filters (UPDATED - removed agent summary)
 app.get('/api/manager/transactions', async (req, res) => {
   // Verify manager authorization
   const token = req.headers.authorization?.split(' ')[1];
@@ -1195,7 +1246,7 @@ app.get('/api/manager/transactions', async (req, res) => {
         LIMIT 100
       `, [branchId, start, end]);
 
-      // Get summary data
+      // Get summary data (without agent summary)
       const summaryResult = await client.query(`
         SELECT 
           COUNT(*) as transaction_count,
@@ -1207,32 +1258,11 @@ app.get('/api/manager/transactions', async (req, res) => {
         WHERE a.branch_id = $1 AND DATE(t.time) BETWEEN $2 AND $3
       `, [branchId, start, end]);
 
-      // Get agent summary
-      const agentSummaryResult = await client.query(`
-        SELECT 
-          e.employee_id,
-          e.first_name || ' ' || e.last_name as employee_name,
-          COUNT(*) as transaction_count,
-          COALESCE(SUM(t.amount), 0) as total_volume
-        FROM transaction t
-        JOIN employee e ON t.employee_id = e.employee_id
-        JOIN account a ON t.account_id = a.account_id
-        WHERE a.branch_id = $1 AND DATE(t.time) BETWEEN $2 AND $3
-        GROUP BY e.employee_id, e.first_name, e.last_name
-        ORDER BY total_volume DESC
-      `, [branchId, start, end]);
-
       const summary = {
         total_deposits: parseFloat(summaryResult.rows[0].total_deposits),
         total_withdrawals: parseFloat(summaryResult.rows[0].total_withdrawals),
         net_flow: parseFloat(summaryResult.rows[0].net_flow),
-        transaction_count: parseInt(summaryResult.rows[0].transaction_count),
-        agent_summary: agentSummaryResult.rows.map(row => ({
-          employee_id: row.employee_id,
-          employee_name: row.employee_name,
-          transaction_count: parseInt(row.transaction_count),
-          total_volume: parseFloat(row.total_volume)
-        }))
+        transaction_count: parseInt(summaryResult.rows[0].transaction_count)
       };
 
       res.json({
@@ -1250,7 +1280,6 @@ app.get('/api/manager/transactions', async (req, res) => {
     res.status(401).json({ message: 'Invalid or expired token' });
   }
 });
-
 // Get customer accounts for manager's branch
 app.get('/api/manager/accounts', async (req, res) => {
   // Verify manager authorization

@@ -166,7 +166,7 @@ const CustomerAccounts: React.FC = () => {
     <div className="customer-accounts">
       <div className="section-header">
         <div>
-          <h3>Customer Accounts</h3>
+          <h4>Customer Accounts</h4>
           <p className="section-subtitle">Manage and view all customer accounts in your branch</p>
         </div>
         <button 
@@ -392,15 +392,11 @@ const CustomerAccounts: React.FC = () => {
       <div className="quick-actions">
         <h4>Quick Actions</h4>
         <div className="action-buttons">
-          <button className="btn btn-secondary">
-            Export to Excel
-          </button>
+          
           <button className="btn btn-secondary">
             Print Report
           </button>
-          <button className="btn btn-secondary">
-            View High Value Accounts
-          </button>
+          
         </div>
       </div>
     </div>

@@ -27,7 +27,7 @@ const ManagerDashboard: React.FC = () => {
           className={activeSection === 'transactions' ? 'active' : ''}
           onClick={() => setActiveSection('transactions')}
         >
-          💰 Transaction Reports
+          💰 Transaction Summary
         </button>
         <button 
           className={activeSection === 'customers' ? 'active' : ''}

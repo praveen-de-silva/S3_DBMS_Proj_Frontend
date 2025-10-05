@@ -229,7 +229,7 @@ const UserManagement: React.FC = () => {
     <div className="user-management">
       <div className="section-header">
         <div>
-          <h3>User Management</h3>
+          <h4>User Management</h4>
           <p className="section-subtitle">Manage system users and permissions</p>
         </div>
         <button 

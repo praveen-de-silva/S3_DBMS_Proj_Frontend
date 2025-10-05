@@ -199,7 +199,7 @@ const TransactionProcessing: React.FC = () => {
     <div className="transaction-processing">
       <div className="section-header">
         <div>
-          <h3>Transaction Processing</h3>
+          <h4>Transaction Processing</h4>
           <p className="section-subtitle">Process deposits, withdrawals, and view transaction history</p>
         </div>
       </div>

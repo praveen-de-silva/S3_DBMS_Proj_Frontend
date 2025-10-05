@@ -17,12 +17,6 @@ interface TransactionSummary {
   total_withdrawals: number;
   net_flow: number;
   transaction_count: number;
-  agent_summary: Array<{
-    employee_id: string;
-    employee_name: string;
-    transaction_count: number;
-    total_volume: number;
-  }>;
 }
 
 const TransactionReports: React.FC = () => {
@@ -79,8 +73,8 @@ const TransactionReports: React.FC = () => {
     <div className="transaction-reports">
       <div className="section-header">
         <div>
-          <h3>Transaction Reports</h3>
-          <p className="section-subtitle">View branch transactions and agent performance</p>
+          <h4>Branch Transaction History</h4>
+          <p className="section-subtitle">View branch transactions and financial summary</p>
         </div>
         <div className="date-filter">
           <label>From:</label>
@@ -132,38 +126,8 @@ const TransactionReports: React.FC = () => {
         </div>
       )}
 
-      {summary && summary.agent_summary.length > 0 && (
-        <div className="agent-summary">
-          <h4>Agent Performance Summary</h4>
-          <div className="table-container">
-            <table className="agent-summary-table">
-              <thead>
-                <tr>
-                  <th>Agent</th>
-                  <th>Employee ID</th>
-                  <th>Transactions</th>
-                  <th>Total Volume</th>
-                  <th>Average per Transaction</th>
-                </tr>
-              </thead>
-              <tbody>
-                {summary.agent_summary.map(agent => (
-                  <tr key={agent.employee_id}>
-                    <td>{agent.employee_name}</td>
-                    <td>{agent.employee_id}</td>
-                    <td>{agent.transaction_count}</td>
-                    <td>{formatCurrency(agent.total_volume)}</td>
-                    <td>{formatCurrency(agent.total_volume / agent.transaction_count)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
       <div className="transactions-list">
-        <h4>Recent Transactions</h4>
+        <h4>Recent Branch Transactions</h4>
         {isLoading ? (
           <div className="loading-container">
             <div className="loading-spinner"></div>

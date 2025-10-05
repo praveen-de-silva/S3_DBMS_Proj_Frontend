@@ -96,7 +96,7 @@ const TeamManagement: React.FC = () => {
     <div className="team-management">
       <div className="section-header">
         <div>
-          <h3>Team Management</h3>
+          <h4>Team Management</h4>
           <p className="section-subtitle">Manage your agents and monitor their performance</p>
         </div>
         <button 
