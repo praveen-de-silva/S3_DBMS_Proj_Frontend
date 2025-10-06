@@ -1,4 +1,6 @@
 Get hashed password for admin : run this in backend (node generate-admin-hash.js) 
 Admin username : admin
 Admin Password : admin123
-userapp Password : Str0ngP@ss! 
+Database : psql -U postgres : password = 123
+Backend : npm run dev
+Frontend : npm start
