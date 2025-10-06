@@ -104,24 +104,24 @@ const TransactionReports: React.FC = () => {
           <div className="summary-card">
             <h4>Total Transactions</h4>
             <div className="summary-value">{summary.transaction_count}</div>
-            <p>In selected period</p>
+            
           </div>
           <div className="summary-card">
             <h4>Total Deposits</h4>
             <div className="summary-value deposit">{formatCurrency(summary.total_deposits)}</div>
-            <p>Funds received</p>
+            
           </div>
           <div className="summary-card">
             <h4>Total Withdrawals</h4>
             <div className="summary-value withdrawal">{formatCurrency(summary.total_withdrawals)}</div>
-            <p>Funds disbursed</p>
+            
           </div>
           <div className="summary-card">
             <h4>Net Flow</h4>
             <div className={`summary-value ${summary.net_flow >= 0 ? 'deposit' : 'withdrawal'}`}>
               {formatCurrency(summary.net_flow)}
             </div>
-            <p>Net transaction flow</p>
+            
           </div>
         </div>
       )}
