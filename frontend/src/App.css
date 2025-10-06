@@ -1618,3 +1618,590 @@ tbody tr:hover {
     padding: var(--spacing-md);
   }
 }
+/* Fixed Deposit Creation Styles */
+.fixed-deposit-creation {
+  padding: 20px;
+}
+
+.fd-summary {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.fd-summary h5 {
+  margin-bottom: 15px;
+  color: #2c3e50;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 15px;
+}
+
+.summary-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background: white;
+  border-radius: 6px;
+  border-left: 4px solid #3498db;
+}
+
+.summary-item span {
+  font-weight: 500;
+  color: #555;
+}
+
+.summary-item strong {
+  color: #2c3e50;
+  font-size: 1.1em;
+}
+
+/* Form Help Text */
+.form-help {
+  color: #6c757d;
+  font-size: 0.875em;
+  margin-top: 5px;
+  display: block;
+}
+
+/* Customer Info Card */
+.customer-info-card {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 15px;
+  margin-top: 10px;
+}
+
+.customer-info-card h5 {
+  margin-bottom: 10px;
+  color: #2c3e50;
+}
+
+.customer-info-card p {
+  margin: 5px 0;
+  color: #555;
+}
+/* Tab Navigation */
+.tab-navigation {
+  display: flex;
+  border-bottom: 1px solid #dee2e6;
+  margin-bottom: 20px;
+}
+
+.tab-btn {
+  padding: 12px 24px;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6c757d;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.tab-btn:hover {
+  color: #495057;
+  background-color: #f8f9fa;
+}
+
+.tab-btn.active {
+  color: #007bff;
+  border-bottom-color: #007bff;
+  background-color: #f8f9fa;
+}
+
+/* FD Management */
+.fd-management {
+  padding: 20px 0;
+}
+
+.search-section {
+  margin-bottom: 20px;
+}
+
+.search-box {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.search-input {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+/* FD Grid */
+.fd-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.fd-card {
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.fd-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.fd-header h6 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 16px;
+}
+
+.fd-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fd-detail {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+}
+
+.fd-detail span {
+  color: #6c757d;
+  font-size: 14px;
+}
+
+.fd-detail strong {
+  color: #2c3e50;
+  font-size: 14px;
+}
+
+.fd-actions {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #e9ecef;
+  text-align: right;
+}
+
+/* Badges */
+.badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.badge-success {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.badge-warning {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.badge-danger {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.badge-secondary {
+  background-color: #6c757d;
+  color: white;
+}
+
+/* No Data */
+.no-data {
+  text-align: center;
+  padding: 40px;
+  color: #6c757d;
+  font-style: italic;
+}
+/* Account Selection Info */
+.account-selection-info {
+  margin-top: 8px;
+}
+
+.text-warning {
+  color: #856404;
+  background-color: #fff3cd;
+  border: 1px solid #ffeaa7;
+  padding: 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+/* Disabled state styling */
+select:disabled {
+  background-color: #f8f9fa;
+  color: #6c757d;
+  cursor: not-allowed;
+}
+
+/* Form Help Text Improvements */
+.form-help {
+  color: #6c757d;
+  font-size: 0.875em;
+  margin-top: 5px;
+  display: block;
+}
+
+.form-help.text-warning {
+  color: #856404;
+  background-color: #fff3cd;
+  border: 1px solid #ffeaa7;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+/* Account Details View Styles */
+.account-details-view {
+  padding: 20px;
+}
+
+.search-filter-section {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-bottom: 20px;
+}
+
+.search-box {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.search-input {
+  flex: 1;
+  padding: 10px 15px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.filter-buttons {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.filter-btn {
+  padding: 8px 16px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.filter-btn.active {
+  background: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+.results-count {
+  color: #6c757d;
+  font-size: 14px;
+}
+
+.accounts-layout {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 20px;
+  height: calc(100vh - 200px);
+}
+
+.accounts-list {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  overflow-y: auto;
+}
+
+.accounts-list h5 {
+  margin-bottom: 15px;
+  color: #2c3e50;
+}
+
+.accounts-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.account-card {
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  padding: 15px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.account-card:hover {
+  border-color: #007bff;
+  background-color: #f8f9fa;
+}
+
+.account-card.selected {
+  border-color: #007bff;
+  background-color: #e7f3ff;
+}
+
+.account-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.account-id {
+  font-weight: bold;
+  color: #2c3e50;
+  font-size: 14px;
+}
+
+.account-badges {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.account-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.account-detail {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+
+.account-detail span:first-child {
+  color: #6c757d;
+}
+
+.account-detail strong {
+  color: #2c3e50;
+}
+
+.account-details-panel {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  overflow-y: auto;
+}
+
+.no-selection {
+  text-align: center;
+  padding: 60px 20px;
+  color: #6c757d;
+}
+
+.no-selection-icon {
+  font-size: 48px;
+  margin-bottom: 15px;
+}
+
+.details-container {
+  height: 100%;
+}
+
+.details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.details-header h5 {
+  margin: 0;
+  color: #2c3e50;
+}
+
+.details-section {
+  margin-bottom: 25px;
+}
+
+.details-section h6 {
+  margin-bottom: 15px;
+  color: #2c3e50;
+  font-size: 16px;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 6px;
+}
+
+.detail-item span {
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.customers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.customer-card {
+  padding: 15px;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  background: #f8f9fa;
+}
+
+.customer-info strong {
+  display: block;
+  margin-bottom: 5px;
+  color: #2c3e50;
+}
+
+.customer-details {
+  display: flex;
+  gap: 15px;
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.transactions-table {
+  overflow-x: auto;
+}
+
+.transactions-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.transactions-table th,
+.transactions-table td {
+  padding: 10px;
+  text-align: left;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.transactions-table th {
+  background: #f8f9fa;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.transaction-type {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.transaction-type.deposit {
+  background: #d4edda;
+  color: #155724;
+}
+
+.transaction-type.withdrawal {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.transaction-type.interest {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.text-success {
+  color: #28a745 !important;
+  font-weight: bold;
+}
+
+.text-danger {
+  color: #dc3545 !important;
+  font-weight: bold;
+}
+
+.loading-panel {
+  text-align: center;
+  padding: 40px;
+}
+
+/* Badge colors */
+.badge-info {
+  background-color: #17a2b8;
+  color: white;
+}
+
+.badge-primary {
+  background-color: #007bff;
+  color: white;
+}
+
+.badge-success {
+  background-color: #28a745;
+  color: white;
+}
+
+.badge-warning {
+  background-color: #ffc107;
+  color: #212529;
+}
+
+.badge-secondary {
+  background-color: #6c757d;
+  color: white;
+}
+
+/* Responsive design */
+@media (max-width: 1200px) {
+  .accounts-layout {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  
+  .accounts-list {
+    max-height: 400px;
+  }
+  
+  .account-details-panel {
+    min-height: 500px;
+  }
+}

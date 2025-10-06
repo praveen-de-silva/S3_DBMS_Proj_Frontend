@@ -1365,3 +1365,524 @@ app.get('/api/manager/accounts', async (req, res) => {
     res.status(401).json({ message: 'Invalid or expired token' });
   }
 });
+// Get all FD plans
+app.get('/api/fd-plans', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const result = await client.query(`
+      SELECT fd_plan_id, fd_options, interest 
+      FROM fdplan 
+      ORDER BY fd_options
+    `);
+    
+    res.json({ fd_plans: result.rows });
+  } catch (error) {
+    console.error('Database error:', error);
+    res.status(500).json({ message: 'Database error' });
+  } finally {
+    client.release();
+  }
+});
+
+// Create fixed deposit account
+app.post('/api/agent/fixed-deposits/create', async (req, res) => {
+  // Verify agent authorization
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ message: 'Authorization required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, 'your_jwt_secret');
+    if (decoded.role !== 'Agent' && decoded.role !== 'Admin') {
+      return res.status(403).json({ message: 'Agent access required' });
+    }
+
+    const { customer_id, account_id, fd_plan_id, principal_amount, auto_renewal_status } = req.body;
+
+    // Validation
+    if (!customer_id || !account_id || !fd_plan_id || principal_amount === undefined) {
+      return res.status(400).json({ message: 'All required fields must be provided' });
+    }
+
+    if (principal_amount <= 0) {
+      return res.status(400).json({ message: 'Principal amount must be greater than 0' });
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // Verify customer exists and is at least 18 years old
+      const customerResult = await client.query(
+        'SELECT *, EXTRACT(YEAR FROM AGE(date_of_birth)) as age FROM customer WHERE customer_id = $1',
+        [customer_id]
+      );
+      if (customerResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'Customer not found' });
+      }
+
+      const customer = customerResult.rows[0];
+      if (parseInt(customer.age) < 18) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'Customer must be at least 18 years old for Fixed Deposit' });
+      }
+
+      // Verify account exists and has sufficient balance
+      const accountResult = await client.query(
+        'SELECT * FROM account WHERE account_id = $1 AND account_status = $2',
+        [account_id, 'Active']
+      );
+      if (accountResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'Account not found or inactive' });
+      }
+
+      const account = accountResult.rows[0];
+      if (parseFloat(account.balance) < parseFloat(principal_amount)) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'Insufficient balance in savings account' });
+      }
+
+      // Verify FD plan exists
+      const planResult = await client.query('SELECT * FROM fdplan WHERE fd_plan_id = $1', [fd_plan_id]);
+      if (planResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'Invalid FD plan' });
+      }
+
+      const fdPlan = planResult.rows[0];
+
+      // Calculate maturity date based on plan
+      const openDate = new Date();
+      const maturityDate = new Date(openDate);
+      
+      switch (fdPlan.fd_options) {
+        case '6 months':
+          maturityDate.setMonth(openDate.getMonth() + 6);
+          break;
+        case '1 year':
+          maturityDate.setFullYear(openDate.getFullYear() + 1);
+          break;
+        case '3 years':
+          maturityDate.setFullYear(openDate.getFullYear() + 3);
+          break;
+      }
+
+      // Generate FD account ID
+      const fdCount = await client.query('SELECT COUNT(*) as count FROM fixeddeposit');
+      const fdId = `FD${String(parseInt(fdCount.rows[0].count) + 1).padStart(3, '0')}`;
+
+      // Create fixed deposit record
+      await client.query(
+        `INSERT INTO fixeddeposit (fd_id, fd_balance, auto_renewal_status, fd_status, open_date, maturity_date, fd_plan_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [fdId, principal_amount, auto_renewal_status, 'Active', openDate, maturityDate, fd_plan_id]
+      );
+
+      // Update savings account balance (deduct principal amount)
+      const newBalance = parseFloat(account.balance) - parseFloat(principal_amount);
+      await client.query(
+        'UPDATE account SET balance = $1 WHERE account_id = $2',
+        [newBalance, account_id]
+      );
+
+      // Link FD to account (update account table with fd_id)
+      await client.query(
+        'UPDATE account SET fd_id = $1 WHERE account_id = $2',
+        [fdId, account_id]
+      );
+
+      // Create withdrawal transaction for the principal amount
+      const transactionCount = await client.query('SELECT COUNT(*) as count FROM transaction');
+      const transactionId = `TXN${String(parseInt(transactionCount.rows[0].count) + 1).padStart(3, '0')}`;
+
+      await client.query(
+        `INSERT INTO transaction (transaction_id, transaction_type, amount, time, description, account_id, employee_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [transactionId, 'Withdrawal', principal_amount, new Date(), 
+         `Fixed Deposit Creation - ${fdPlan.fd_options} Plan`, account_id, decoded.id]
+      );
+
+      await client.query('COMMIT');
+      
+      res.status(201).json({ 
+        message: 'Fixed Deposit created successfully',
+        fd_account_number: fdId,
+        maturity_date: maturityDate.toISOString().split('T')[0],
+        new_savings_balance: newBalance
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Database error:', error);
+      res.status(500).json({ message: 'Database error: ' + error.message });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Authentication error:', error);
+    res.status(401).json({ message: 'Invalid or expired token' });
+  }
+});
+
+// Get accounts with FD information (updated to exclude joint accounts)
+app.get('/api/agent/accounts-with-fd', async (req, res) => {
+  // Verify agent authorization
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ message: 'Authorization required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, 'your_jwt_secret');
+    if (decoded.role !== 'Agent' && decoded.role !== 'Admin') {
+      return res.status(403).json({ message: 'Agent access required' });
+    }
+
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        SELECT DISTINCT
+          a.account_id,
+          a.balance,
+          a.account_status,
+          a.fd_id,
+          sp.plan_type,
+          STRING_AGG(DISTINCT c.first_name || ' ' || c.last_name, ', ') as customer_names,
+          COUNT(DISTINCT t.customer_id) as customer_count
+        FROM account a
+        JOIN takes t ON a.account_id = t.account_id
+        JOIN customer c ON t.customer_id = c.customer_id
+        JOIN savingplan sp ON a.saving_plan_id = sp.saving_plan_id
+        WHERE a.account_status = 'Active'
+        AND sp.plan_type != 'Joint'  -- Exclude joint accounts
+        GROUP BY a.account_id, a.balance, a.account_status, a.fd_id, sp.plan_type
+        HAVING COUNT(DISTINCT t.customer_id) = 1  -- Ensure only single customer accounts
+        ORDER BY a.account_id
+      `);
+      
+      res.json({ accounts: result.rows });
+    } catch (error) {
+      console.error('Database error:', error);
+      res.status(500).json({ message: 'Database error' });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Authentication error:', error);
+    res.status(401).json({ message: 'Invalid or expired token' });
+  }
+});
+
+// Get all fixed deposits
+app.get('/api/agent/fixed-deposits', async (req, res) => {
+  // Verify agent authorization
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ message: 'Authorization required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, 'your_jwt_secret');
+    if (decoded.role !== 'Agent' && decoded.role !== 'Admin') {
+      return res.status(403).json({ message: 'Agent access required' });
+    }
+
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        SELECT 
+          fd.fd_id,
+          fd.fd_balance,
+          fd.fd_status,
+          fd.open_date,
+          fd.maturity_date,
+          fd.auto_renewal_status,
+          fp.fd_options,
+          fp.interest,
+          a.account_id,
+          STRING_AGG(DISTINCT c.first_name || ' ' || c.last_name, ', ') as customer_names
+        FROM fixeddeposit fd
+        JOIN fdplan fp ON fd.fd_plan_id = fp.fd_plan_id
+        JOIN account a ON fd.fd_id = a.fd_id
+        JOIN takes t ON a.account_id = t.account_id
+        JOIN customer c ON t.customer_id = c.customer_id
+        GROUP BY fd.fd_id, fd.fd_balance, fd.fd_status, fd.open_date, fd.maturity_date, 
+                 fd.auto_renewal_status, fp.fd_options, fp.interest, a.account_id
+        ORDER BY fd.open_date DESC
+      `);
+      
+      res.json({ fixed_deposits: result.rows });
+    } catch (error) {
+      console.error('Database error:', error);
+      res.status(500).json({ message: 'Database error' });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Authentication error:', error);
+    res.status(401).json({ message: 'Invalid or expired token' });
+  }
+});
+
+// Search fixed deposits by FD ID
+app.get('/api/agent/fixed-deposits/search/:fdId', async (req, res) => {
+  // Verify agent authorization
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ message: 'Authorization required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, 'your_jwt_secret');
+    if (decoded.role !== 'Agent' && decoded.role !== 'Admin') {
+      return res.status(403).json({ message: 'Agent access required' });
+    }
+
+    const { fdId } = req.params;
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        SELECT 
+          fd.fd_id,
+          fd.fd_balance,
+          fd.fd_status,
+          fd.open_date,
+          fd.maturity_date,
+          fd.auto_renewal_status,
+          fp.fd_options,
+          fp.interest,
+          a.account_id,
+          STRING_AGG(DISTINCT c.first_name || ' ' || c.last_name, ', ') as customer_names
+        FROM fixeddeposit fd
+        JOIN fdplan fp ON fd.fd_plan_id = fp.fd_plan_id
+        JOIN account a ON fd.fd_id = a.fd_id
+        JOIN takes t ON a.account_id = t.account_id
+        JOIN customer c ON t.customer_id = c.customer_id
+        WHERE fd.fd_id ILIKE $1
+        GROUP BY fd.fd_id, fd.fd_balance, fd.fd_status, fd.open_date, fd.maturity_date, 
+                 fd.auto_renewal_status, fp.fd_options, fp.interest, a.account_id
+        ORDER BY fd.open_date DESC
+      `, [`%${fdId}%`]);
+      
+      res.json({ fixed_deposits: result.rows });
+    } catch (error) {
+      console.error('Database error:', error);
+      res.status(500).json({ message: 'Database error' });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Authentication error:', error);
+    res.status(401).json({ message: 'Invalid or expired token' });
+  }
+});
+
+// Deactivate fixed deposit
+app.post('/api/agent/fixed-deposits/deactivate', async (req, res) => {
+  // Verify agent authorization
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ message: 'Authorization required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, 'your_jwt_secret');
+    if (decoded.role !== 'Agent' && decoded.role !== 'Admin') {
+      return res.status(403).json({ message: 'Agent access required' });
+    }
+
+    const { fd_id } = req.body;
+
+    if (!fd_id) {
+      return res.status(400).json({ message: 'FD ID is required' });
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // Check if FD exists and is active
+      const fdResult = await client.query(
+        'SELECT * FROM fixeddeposit WHERE fd_id = $1 AND fd_status = $2',
+        [fd_id, 'Active']
+      );
+
+      if (fdResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'Active fixed deposit not found' });
+      }
+
+      const fd = fdResult.rows[0];
+
+      // Update FD status to Closed
+      await client.query(
+        'UPDATE fixeddeposit SET fd_status = $1 WHERE fd_id = $2',
+        ['Closed', fd_id]
+      );
+
+      // Remove FD reference from account
+      await client.query(
+        'UPDATE account SET fd_id = NULL WHERE fd_id = $1',
+        [fd_id]
+      );
+
+      await client.query('COMMIT');
+      
+      res.json({ 
+        message: 'Fixed deposit deactivated successfully',
+        fd_id: fd_id
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Database error:', error);
+      res.status(500).json({ message: 'Database error: ' + error.message });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Authentication error:', error);
+    res.status(401).json({ message: 'Invalid or expired token' });
+  }
+});
+
+// Get all accounts with basic information
+app.get('/api/agent/all-accounts', async (req, res) => {
+  // Verify agent authorization
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ message: 'Authorization required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, 'your_jwt_secret');
+    if (decoded.role !== 'Agent' && decoded.role !== 'Admin') {
+      return res.status(403).json({ message: 'Agent access required' });
+    }
+
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        SELECT 
+          a.account_id,
+          a.balance,
+          a.account_status,
+          a.open_date,
+          a.branch_id,
+          a.saving_plan_id,
+          a.fd_id,
+          sp.plan_type,
+          sp.interest,
+          sp.min_balance,
+          STRING_AGG(DISTINCT c.first_name || ' ' || c.last_name, ', ') as customer_names,
+          COUNT(DISTINCT t.customer_id) as customer_count
+        FROM account a
+        JOIN takes t ON a.account_id = t.account_id
+        JOIN customer c ON t.customer_id = c.customer_id
+        JOIN savingplan sp ON a.saving_plan_id = sp.saving_plan_id
+        GROUP BY a.account_id, a.balance, a.account_status, a.open_date, a.branch_id, 
+                 a.saving_plan_id, a.fd_id, sp.plan_type, sp.interest, sp.min_balance
+        ORDER BY a.open_date DESC
+      `);
+      
+      res.json({ accounts: result.rows });
+    } catch (error) {
+      console.error('Database error:', error);
+      res.status(500).json({ message: 'Database error' });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Authentication error:', error);
+    res.status(401).json({ message: 'Invalid or expired token' });
+  }
+});
+
+// Get detailed account information
+app.get('/api/agent/accounts/:accountId/details', async (req, res) => {
+  // Verify agent authorization
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ message: 'Authorization required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, 'your_jwt_secret');
+    if (decoded.role !== 'Agent' && decoded.role !== 'Admin') {
+      return res.status(403).json({ message: 'Agent access required' });
+    }
+
+    const { accountId } = req.params;
+    const client = await pool.connect();
+    try {
+      // Get basic account information with branch name
+      const accountResult = await client.query(`
+        SELECT 
+          a.account_id,
+          a.balance,
+          a.account_status,
+          a.open_date,
+          b.name as branch_name,
+          sp.plan_type,
+          sp.interest,
+          sp.min_balance
+        FROM account a
+        JOIN branch b ON a.branch_id = b.branch_id
+        JOIN savingplan sp ON a.saving_plan_id = sp.saving_plan_id
+        WHERE a.account_id = $1
+      `, [accountId]);
+
+      if (accountResult.rows.length === 0) {
+        return res.status(404).json({ message: 'Account not found' });
+      }
+
+      const account = accountResult.rows[0];
+
+      // Get customer information
+      const customersResult = await client.query(`
+        SELECT 
+          c.customer_id,
+          c.first_name,
+          c.last_name,
+          c.nic,
+          c.date_of_birth
+        FROM customer c
+        JOIN takes t ON c.customer_id = t.customer_id
+        WHERE t.account_id = $1
+      `, [accountId]);
+
+      // Get recent transactions (last 20)
+      const transactionsResult = await client.query(`
+        SELECT 
+          transaction_id,
+          transaction_type,
+          amount,
+          time,
+          description
+        FROM transaction 
+        WHERE account_id = $1
+        ORDER BY time DESC
+        LIMIT 20
+      `, [accountId]);
+
+      const accountDetails = {
+        ...account,
+        customers: customersResult.rows,
+        transactions: transactionsResult.rows
+      };
+
+      res.json({ account: accountDetails });
+    } catch (error) {
+      console.error('Database error:', error);
+      res.status(500).json({ message: 'Database error' });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Authentication error:', error);
+    res.status(401).json({ message: 'Invalid or expired token' });
+  }
+});

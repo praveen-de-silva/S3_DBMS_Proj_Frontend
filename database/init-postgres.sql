@@ -144,6 +144,8 @@ CREATE SEQUENCE IF NOT EXISTS customer_id_seq;
 CREATE SEQUENCE IF NOT EXISTS account_id_seq;
 CREATE SEQUENCE IF NOT EXISTS transaction_id_seq;
 
+
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_employee_username ON Employee(username);
 CREATE INDEX IF NOT EXISTS idx_employee_role ON Employee(role);
@@ -157,3 +159,10 @@ CREATE INDEX IF NOT EXISTS idx_takes_customer ON Takes(customer_id);
 CREATE INDEX IF NOT EXISTS idx_takes_account ON Takes(account_id);
 CREATE INDEX IF NOT EXISTS idx_fixed_deposit_status ON FixedDeposit(fd_status);
 CREATE INDEX IF NOT EXISTS idx_contact_type ON Contact(type);
+
+-- Add a constraint to ensure one FD per savings account
+ALTER TABLE account ADD CONSTRAINT unique_fd_per_account UNIQUE (fd_id);
+
+-- Add an index for better FD search performance
+CREATE INDEX IF NOT EXISTS idx_account_fd_id ON Account(fd_id);
+CREATE INDEX IF NOT EXISTS idx_fixed_deposit_status ON FixedDeposit(fd_status);

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import CustomerRegistration from './CustomerRegistration';
 import AccountCreation from './AccountCreation';
+import FixedDepositCreation from './FixedDepositCreation';
+import AccountDetailsView from './AccountDetailsView';
 import TransactionProcessing from './TransactionProcessing';
 import AgentPerformance from './AgentPerformance';
 
@@ -22,13 +24,25 @@ const AgentDashboard: React.FC = () => {
           className={activeSection === 'account' ? 'active' : ''}
           onClick={() => setActiveSection('account')}
         >
-          🏦 Create Account
+          🏦 Create Savings Account
+        </button>
+        <button 
+          className={activeSection === 'fixed-deposit' ? 'active' : ''}
+          onClick={() => setActiveSection('fixed-deposit')}
+        >
+          💰 Create Fixed Deposit
+        </button>
+        <button 
+          className={activeSection === 'view-accounts' ? 'active' : ''}
+          onClick={() => setActiveSection('view-accounts')}
+        >
+          🔍 View Account Details
         </button>
         <button 
           className={activeSection === 'transactions' ? 'active' : ''}
           onClick={() => setActiveSection('transactions')}
         >
-          💰 Process Transaction
+          💳 Process Transaction
         </button>
         <button 
           className={activeSection === 'performance' ? 'active' : ''}
@@ -41,6 +55,8 @@ const AgentDashboard: React.FC = () => {
       <div className="admin-content">
         {activeSection === 'register' && <CustomerRegistration />}
         {activeSection === 'account' && <AccountCreation />}
+        {activeSection === 'fixed-deposit' && <FixedDepositCreation />}
+        {activeSection === 'view-accounts' && <AccountDetailsView />}
         {activeSection === 'transactions' && <TransactionProcessing />}
         {activeSection === 'performance' && <AgentPerformance />}
       </div>
