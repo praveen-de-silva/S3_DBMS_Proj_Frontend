@@ -374,7 +374,7 @@ const AccountCreation: React.FC = () => {
             {/* Joint Account Holders Section */}
             {selectedPlan?.plan_type === 'Joint' && (
               <div className="joint-holders-section">
-                <h5>Joint Account Holders</h5>
+                <p>Joint Account Holders</p>
                 <p className="form-help">
                   Add other customers who will be joint holders of this account. All joint holders must be at least 18 years old.
                 </p>

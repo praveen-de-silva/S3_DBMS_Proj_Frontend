@@ -1557,9 +1557,7 @@ app.get('/api/agent/accounts-with-fd', async (req, res) => {
         JOIN customer c ON t.customer_id = c.customer_id
         JOIN savingplan sp ON a.saving_plan_id = sp.saving_plan_id
         WHERE a.account_status = 'Active'
-        AND sp.plan_type != 'Joint'  -- Exclude joint accounts
         GROUP BY a.account_id, a.balance, a.account_status, a.fd_id, sp.plan_type
-        HAVING COUNT(DISTINCT t.customer_id) = 1  -- Ensure only single customer accounts
         ORDER BY a.account_id
       `);
       

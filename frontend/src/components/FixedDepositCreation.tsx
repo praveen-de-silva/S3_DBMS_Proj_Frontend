@@ -185,19 +185,51 @@ const FixedDepositCreation: React.FC = () => {
     if (!selectedCustomer) return [];
 
     return accounts.filter(account => {
-      // Check if account belongs to selected customer
-      const belongsToCustomer = account.customer_names.includes(selectedCustomer.first_name) && 
-                               account.customer_names.includes(selectedCustomer.last_name);
-      
-      // Check if account is eligible (no FD, not joint, individual account)
-      const isEligible = !account.fd_id && 
-                        account.plan_type !== 'Joint' && 
-                        account.customer_count === 1;
-      
-      // Check if account has sufficient balance (at least some balance)
-      const hasBalance = account.balance > 0;
+      // Debug logging to see what's happening
+      console.log('Checking account:', account.account_id, {
+        customer_names: account.customer_names,
+        selected_customer: `${selectedCustomer.first_name} ${selectedCustomer.last_name}`,
+        has_fd: account.fd_id,
+        plan_type: account.plan_type,
+        customer_count: account.customer_count,
+        balance: account.balance
+      });
 
-      return belongsToCustomer && isEligible && hasBalance;
+      // Check if account belongs to selected customer (more flexible matching)
+      const customerFullName = `${selectedCustomer.first_name} ${selectedCustomer.last_name}`;
+      const belongsToCustomer = account.customer_names.includes(customerFullName);
+      
+      if (!belongsToCustomer) {
+        console.log('Account does not belong to customer');
+        return false;
+      }
+
+      // Check if account already has an FD
+      if (account.fd_id) {
+        console.log('Account already has FD:', account.fd_id);
+        return false;
+      }
+
+      // Check if account is joint account
+      if (account.plan_type === 'Joint') {
+        console.log('Account is joint account');
+        return false;
+      }
+
+      // Check if account has multiple customers (joint account)
+      if (account.customer_count > 1) {
+        console.log('Account has multiple customers');
+        return false;
+      }
+
+      // Check if account has sufficient balance
+      if (account.balance <= 0) {
+        console.log('Account has insufficient balance');
+        return false;
+      }
+
+      console.log('Account is eligible');
+      return true;
     });
   };
 
