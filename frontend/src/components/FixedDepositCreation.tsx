@@ -68,6 +68,10 @@ const FixedDepositCreation: React.FC = () => {
   const [searchResults, setSearchResults] = useState<ExistingFD[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   
+  // NEW: State for searchable customer dropdown
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  
   const [formData, setFormData] = useState<FdFormData>({
     customer_id: '',
     account_id: '',
@@ -113,6 +117,60 @@ const FixedDepositCreation: React.FC = () => {
       setIsLoadingData(false);
     }
   };
+
+  // NEW: Filter customers based on search
+  const filteredCustomers = customers.filter(customer =>
+    customer.customer_id.toLowerCase().includes(customerSearch.toLowerCase()) ||
+    customer.first_name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+    customer.last_name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+    customer.nic.toLowerCase().includes(customerSearch.toLowerCase())
+  );
+
+  // NEW: Handle customer selection
+  const handleCustomerSelect = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setFormData(prev => ({
+      ...prev,
+      customer_id: customer.customer_id
+    }));
+    setCustomerSearch(`${customer.first_name} ${customer.last_name} (NIC: ${customer.nic})`);
+    setShowCustomerDropdown(false);
+    
+    // Reset account selection when customer changes
+    setFormData(prev => ({
+      ...prev,
+      account_id: ''
+    }));
+    setSelectedAccount(null);
+  };
+
+  // NEW: Handle customer search input change
+  const handleCustomerSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setCustomerSearch(value);
+    setShowCustomerDropdown(true);
+    
+    // If input is cleared, also clear the selected customer
+    if (!value.trim()) {
+      setFormData(prev => ({
+        ...prev,
+        customer_id: ''
+      }));
+      setSelectedCustomer(null);
+    }
+  };
+
+  // NEW: Handle click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setShowCustomerDropdown(false);
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, []);
 
   const loadExistingFDs = async () => {
     try {
@@ -338,6 +396,7 @@ const FixedDepositCreation: React.FC = () => {
         principal_amount: 0,
         auto_renewal_status: 'False'
       });
+      setCustomerSearch('');
       setSelectedCustomer(null);
       setSelectedPlan(null);
       setSelectedAccount(null);
@@ -369,16 +428,7 @@ const FixedDepositCreation: React.FC = () => {
     }
 
     // Update selected items when they change
-    if (name === 'customer_id') {
-      const customer = customers.find(c => c.customer_id === value);
-      setSelectedCustomer(customer || null);
-      // Reset account selection when customer changes
-      setFormData(prev => ({
-        ...prev,
-        account_id: ''
-      }));
-      setSelectedAccount(null);
-    } else if (name === 'fd_plan_id') {
+    if (name === 'fd_plan_id') {
       const plan = fdPlans.find(p => p.fd_plan_id === value);
       setSelectedPlan(plan || null);
     } else if (name === 'account_id') {
@@ -458,21 +508,47 @@ const FixedDepositCreation: React.FC = () => {
               <h4>Customer & Account Selection</h4>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Select Customer *</label>
-                  <select
-                    name="customer_id"
-                    value={formData.customer_id}
-                    onChange={handleInputChange}
-                    required
-                    className={errors.customer_id ? 'error' : ''}
-                  >
-                    <option value="">Choose a customer...</option>
-                    {customers.map(customer => (
-                      <option key={customer.customer_id} value={customer.customer_id}>
-                        {customer.first_name} {customer.last_name} (NIC: {customer.nic})
-                      </option>
-                    ))}
-                  </select>
+                  <label>Search Customer *</label>
+                  <div className="searchable-dropdown">
+                    <input
+                      type="text"
+                      value={customerSearch}
+                      onChange={handleCustomerSearchChange}
+                      onFocus={() => setShowCustomerDropdown(true)}
+                      placeholder="Search by Customer Name, NIC, or Customer ID..."
+                      className={errors.customer_id ? 'error' : ''}
+                      required
+                    />
+                    {showCustomerDropdown && filteredCustomers.length > 0 && (
+                      <div className="dropdown-menu">
+                        {filteredCustomers.map(customer => (
+                          <div
+                            key={customer.customer_id}
+                            className="dropdown-item"
+                            onClick={() => handleCustomerSelect(customer)}
+                          >
+                            <div className="customer-option">
+                              <div className="customer-name">
+                                {customer.first_name} {customer.last_name}
+                              </div>
+                              <div className="customer-details">
+                                <span className="customer-id">ID: {customer.customer_id}</span>
+                                <span className="customer-nic">NIC: {customer.nic}</span>
+                                <span className="customer-age">Age: {calculateAge(customer.date_of_birth)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {showCustomerDropdown && filteredCustomers.length === 0 && customerSearch && (
+                      <div className="dropdown-menu">
+                        <div className="dropdown-item no-results">
+                          No customers found matching "{customerSearch}"
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   {errors.customer_id && <span className="error-text">{errors.customer_id}</span>}
                 </div>
 
@@ -636,6 +712,7 @@ const FixedDepositCreation: React.FC = () => {
                     principal_amount: 0,
                     auto_renewal_status: 'False'
                   });
+                  setCustomerSearch('');
                   setSelectedCustomer(null);
                   setSelectedPlan(null);
                   setSelectedAccount(null);

@@ -2205,3 +2205,150 @@ select:disabled {
     min-height: 500px;
   }
 }
+/* Searchable Dropdown Styles */
+.searchable-dropdown {
+  position: relative;
+  width: 100%;
+}
+
+.searchable-dropdown input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.searchable-dropdown input:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.dropdown-item {
+  padding: 10px;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.dropdown-item:hover {
+  background-color: #f8f9fa;
+}
+
+.dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.account-option {
+  display: flex;
+  flex-direction: column;
+}
+
+.account-id {
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.account-details {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #666;
+}
+
+.customer-names {
+  flex: 2;
+}
+
+.plan-type {
+  flex: 1;
+  text-align: center;
+}
+
+.balance {
+  flex: 1;
+  text-align: right;
+  font-weight: bold;
+  color: #28a745;
+}
+
+.no-results {
+  color: #6c757d;
+  font-style: italic;
+  text-align: center;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .account-details {
+    flex-direction: column;
+    gap: 2px;
+  }
+  
+  .customer-names,
+  .plan-type,
+  .balance {
+    text-align: left;
+  }
+}
+/* Customer Dropdown Styles */
+.customer-option {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+}
+
+.customer-name {
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.customer-details {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #666;
+  gap: 10px;
+}
+
+.customer-id {
+  font-weight: 500;
+}
+
+.customer-nic {
+  color: #6c757d;
+}
+
+.customer-age {
+  color: #28a745;
+  font-weight: bold;
+}
+
+/* Responsive adjustments for customer dropdown */
+@media (max-width: 768px) {
+  .customer-details {
+    flex-direction: column;
+    gap: 2px;
+  }
+  
+  .customer-id,
+  .customer-nic,
+  .customer-age {
+    text-align: left;
+  }
+}

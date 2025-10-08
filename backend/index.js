@@ -1764,29 +1764,29 @@ app.get('/api/agent/all-accounts', async (req, res) => {
     const client = await pool.connect();
     try {
       const result = await client.query(`
-        SELECT 
-          a.account_id,
-          a.balance,
-          a.account_status,
-          a.open_date,
-          a.branch_id,
-          a.saving_plan_id,
-          a.fd_id,
-          sp.plan_type,
-          sp.interest,
-          sp.min_balance,
-          STRING_AGG(DISTINCT c.first_name || ' ' || c.last_name, ', ') as customer_names,
-          COUNT(DISTINCT t.customer_id) as customer_count
-        FROM account a
-        JOIN takes t ON a.account_id = t.account_id
-        JOIN customer c ON t.customer_id = c.customer_id
-        JOIN savingplan sp ON a.saving_plan_id = sp.saving_plan_id
-        GROUP BY a.account_id, a.balance, a.account_status, a.open_date, a.branch_id, 
-                 a.saving_plan_id, a.fd_id, sp.plan_type, sp.interest, sp.min_balance
-        ORDER BY a.open_date DESC
-      `);
-      
-      res.json({ accounts: result.rows });
+      SELECT 
+        a.account_id,
+        a.balance,
+        a.account_status,
+        a.open_date,
+        a.branch_id,
+        a.saving_plan_id,
+        a.fd_id,
+        sp.plan_type,
+        sp.interest,
+        sp.min_balance,
+        STRING_AGG(DISTINCT c.first_name || ' ' || c.last_name, ', ') as customer_names,
+        COUNT(DISTINCT t.customer_id) as customer_count
+      FROM account a
+      JOIN takes t ON a.account_id = t.account_id
+      JOIN customer c ON t.customer_id = c.customer_id
+      JOIN savingplan sp ON a.saving_plan_id = sp.saving_plan_id
+      GROUP BY a.account_id, a.balance, a.account_status, a.open_date, a.branch_id, 
+              a.saving_plan_id, a.fd_id, sp.plan_type, sp.interest, sp.min_balance
+      ORDER BY a.open_date DESC
+    `);
+  
+  res.json({ accounts: result.rows });
     } catch (error) {
       console.error('Database error:', error);
       res.status(500).json({ message: 'Database error' });
