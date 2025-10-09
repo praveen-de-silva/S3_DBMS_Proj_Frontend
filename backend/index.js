@@ -31,6 +31,183 @@ pool.connect((err, client, release) => {
   release();
 });
 
+const cron = require('node-cron');
+
+// Function to automatically calculate AND credit FD interest (run on 1st of every month)
+const processMonthlyFDInterest = async () => {
+  console.log('🚀 Starting automatic monthly FD interest processing...');
+  
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const today = new Date();
+    const currentMonth = today.getMonth() + 1; // 1-12
+    const currentYear = today.getFullYear();
+    
+    // Always process the previous month
+    const periodStart = new Date(currentYear, today.getMonth() - 1, 1);
+    const periodEnd = new Date(currentYear, today.getMonth(), 0); // Last day of previous month
+    
+    // Format dates as YYYY-MM-DD
+    const startDate = periodStart.toISOString().split('T')[0];
+    const endDate = periodEnd.toISOString().split('T')[0];
+    const processDate = today.toISOString().split('T')[0];
+
+    // Check if this MONTH has already been processed
+    const periodCheck = await client.query(`
+      SELECT * FROM fd_interest_periods 
+      WHERE EXTRACT(MONTH FROM period_start) = $1 
+      AND EXTRACT(YEAR FROM period_start) = $2 
+      AND is_processed = true
+    `, [currentMonth, currentYear]);
+
+    if (periodCheck.rows.length > 0) {
+      console.log('✅ Interest for this month already processed');
+      await client.query('ROLLBACK');
+      return { alreadyProcessed: true, message: 'Interest for this month already processed' };
+    }
+
+    console.log(`📅 Processing FD interest for period: ${startDate} to ${endDate}`);
+
+    // Get all active fixed deposits
+    const activeFDs = await client.query(`
+      SELECT 
+        fd.fd_id,
+        fd.fd_balance,
+        fd.fd_plan_id,
+        fp.interest,
+        fp.fd_options,
+        a.account_id as linked_account_id
+      FROM fixeddeposit fd
+      JOIN fdplan fp ON fd.fd_plan_id = fp.fd_plan_id
+      JOIN account a ON fd.fd_id = a.fd_id
+      WHERE fd.fd_status = 'Active'
+    `);
+
+    let calculatedCount = 0;
+    let creditedCount = 0;
+    let totalInterest = 0;
+
+    // Calculate interest for each FD and credit immediately
+    for (const fd of activeFDs.rows) {
+      // Check if this FD already had interest calculated for current month
+      const existingInterest = await client.query(`
+        SELECT * FROM fd_interest_calculations 
+        WHERE fd_id = $1 
+        AND EXTRACT(MONTH FROM calculation_date) = $2 
+        AND EXTRACT(YEAR FROM calculation_date) = $3
+        AND status = 'credited'
+      `, [fd.fd_id, currentMonth, currentYear]);
+
+      if (existingInterest.rows.length > 0) {
+        console.log(`⏭️ Interest already credited for FD ${fd.fd_id} this month, skipping`);
+        continue;
+      }
+
+      const dailyInterestRate = parseFloat(fd.interest) / 100 / 365;
+      const interestAmount = parseFloat((parseFloat(fd.fd_balance) * dailyInterestRate * 30).toFixed(2)); // 30-day period
+      
+      if (interestAmount > 0) {
+        try {
+          // Update savings account balance (CREDIT THE INTEREST)
+          const currentBalanceResult = await client.query(
+            'SELECT balance FROM account WHERE account_id = $1',
+            [fd.linked_account_id]
+          );
+          
+          const currentBalance = parseFloat(currentBalanceResult.rows[0].balance);
+          const newBalance = currentBalance + interestAmount;
+          
+          await client.query(
+            'UPDATE account SET balance = $1 WHERE account_id = $2',
+            [newBalance, fd.linked_account_id]
+          );
+
+          // Generate transaction ID for interest credit
+          const transactionCount = await client.query('SELECT COUNT(*) as count FROM transaction');
+          const transactionId = `TXN${String(parseInt(transactionCount.rows[0].count) + 1).padStart(3, '0')}`;
+
+          // Create interest credit transaction (use system user or find an admin)
+          const adminUser = await client.query(
+            "SELECT employee_id FROM employee WHERE role = 'Admin' LIMIT 1"
+          );
+          const employeeId = adminUser.rows.length > 0 ? adminUser.rows[0].employee_id : 'A001'; // Fallback
+
+          await client.query(
+            `INSERT INTO transaction (transaction_id, transaction_type, amount, time, description, account_id, employee_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [transactionId, 'Interest', interestAmount, today,
+             `Monthly FD Interest - ${fd.fd_options} Plan`, fd.linked_account_id, employeeId]
+          );
+
+          // Create interest calculation record (marked as credited)
+          await client.query(
+            `INSERT INTO fd_interest_calculations 
+             (fd_id, calculation_date, interest_amount, days_in_period, credited_to_account_id, status, credited_at)
+             VALUES ($1, $2, $3, $4, $5, 'credited', $6)`,
+            [fd.fd_id, processDate, interestAmount, 30, fd.linked_account_id, today]
+          );
+
+          calculatedCount++;
+          creditedCount++;
+          totalInterest += interestAmount;
+
+          console.log(`💰 Credited LKR ${interestAmount} interest for FD ${fd.fd_id} to account ${fd.linked_account_id}`);
+
+        } catch (error) {
+          console.error(`❌ Failed to process interest for FD ${fd.fd_id}:`, error);
+          // Create failed record but continue with others
+          await client.query(
+            `INSERT INTO fd_interest_calculations 
+             (fd_id, calculation_date, interest_amount, days_in_period, credited_to_account_id, status)
+             VALUES ($1, $2, $3, $4, $5, 'failed')`,
+            [fd.fd_id, processDate, interestAmount, 30, fd.linked_account_id]
+          );
+        }
+      }
+    }
+
+    // Mark period as processed (only if we actually processed something)
+    if (calculatedCount > 0) {
+      await client.query(
+        `INSERT INTO fd_interest_periods (period_start, period_end, is_processed, processed_at)
+         VALUES ($1, $2, true, $3)`,
+        [startDate, endDate, today]
+      );
+    }
+
+    await client.query('COMMIT');
+    
+    console.log(`✅ Monthly FD interest processing completed!`);
+    console.log(`📊 FDs Processed: ${calculatedCount}`);
+    console.log(`💰 Total Interest Credited: LKR ${totalInterest.toLocaleString()}`);
+    console.log(`📅 Period: ${startDate} to ${endDate}`);
+
+    return {
+      success: true,
+      processed: calculatedCount,
+      totalInterest: totalInterest,
+      period: `${startDate} to ${endDate}`
+    };
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('❌ Error in automatic FD interest processing:', error);
+    return { success: false, error: error.message };
+  } finally {
+    client.release();
+  }
+};
+
+// Schedule to run on 1st of every month at 3 AM (fully automatic)
+cron.schedule('0 3 1 * *', processMonthlyFDInterest);
+
+console.log('✅ FD Interest Auto-Processor: Scheduled for 1st of every month at 3:00 AM');
+
+// For testing: Uncomment this line to run every 10 minutes
+// cron.schedule('*/10 * * * *', processMonthlyFDInterest);
+
 // Admin-only registration endpoint
 // Update the /api/admin/register endpoint
 app.post('/api/admin/register', async (req, res) => {
@@ -297,6 +474,111 @@ app.get('/api/health', async (req, res) => {
       message: 'Database connection failed', 
       status: 'ERROR' 
     });
+  }
+});
+
+// Manual trigger for interest processing (for testing/backup)
+app.post('/api/admin/fd-interest/process-now', async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ message: 'Authorization required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, 'your_jwt_secret');
+    if (decoded.role !== 'Admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    console.log('🔄 Manual FD interest processing triggered by admin');
+    const result = await processMonthlyFDInterest();
+    
+    if (result.alreadyProcessed) {
+      return res.status(400).json({ 
+        message: 'FD interest for this month has already been processed',
+        note: 'Interest can only be processed once per month to prevent double payments'
+      });
+    }
+    
+    if (result.success) {
+      res.json({ 
+        message: 'FD interest processing completed successfully',
+        processed_count: result.processed,
+        total_interest: result.totalInterest,
+        period: result.period,
+        note: 'This process also runs automatically on the 1st of every month at 3 AM'
+      });
+    } else {
+      res.status(500).json({ 
+        message: 'FD interest processing failed',
+        error: result.error 
+      });
+    }
+
+  } catch (error) {
+    console.error('Authentication error:', error);
+    res.status(401).json({ message: 'Invalid or expired token' });
+  }
+});
+
+// Get FD interest summary
+app.get('/api/admin/fd-interest/summary', async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ message: 'Authorization required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, 'your_jwt_secret');
+    if (decoded.role !== 'Admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    const client = await pool.connect();
+    try {
+      // Total interest paid this month
+      const monthlyInterest = await client.query(`
+        SELECT COALESCE(SUM(interest_amount), 0) as total_interest
+        FROM fd_interest_calculations 
+        WHERE status = 'credited' 
+        AND EXTRACT(MONTH FROM credited_at) = EXTRACT(MONTH FROM CURRENT_DATE)
+        AND EXTRACT(YEAR FROM credited_at) = EXTRACT(YEAR FROM CURRENT_DATE)
+      `);
+
+      // Active FDs count and total value
+      const activeFDs = await client.query(`
+        SELECT COUNT(*) as active_count, COALESCE(SUM(fd_balance), 0) as total_value
+        FROM fixeddeposit 
+        WHERE fd_status = 'Active'
+      `);
+
+      // Recent interest periods
+      const recentPeriods = await client.query(`
+        SELECT period_start, period_end, processed_at
+        FROM fd_interest_periods 
+        WHERE is_processed = true
+        ORDER BY processed_at DESC
+        LIMIT 5
+      `);
+
+      res.json({
+        monthly_interest: parseFloat(monthlyInterest.rows[0].total_interest),
+        active_fds: {
+          count: parseInt(activeFDs.rows[0].active_count),
+          total_value: parseFloat(activeFDs.rows[0].total_value)
+        },
+        recent_periods: recentPeriods.rows,
+        next_scheduled_run: '1st of next month at 3:00 AM'
+      });
+    } catch (error) {
+      console.error('Database error:', error);
+      res.status(500).json({ message: 'Database error' });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Authentication error:', error);
+    res.status(401).json({ message: 'Invalid or expired token' });
   }
 });
 
@@ -1764,29 +2046,29 @@ app.get('/api/agent/all-accounts', async (req, res) => {
     const client = await pool.connect();
     try {
       const result = await client.query(`
-      SELECT 
-        a.account_id,
-        a.balance,
-        a.account_status,
-        a.open_date,
-        a.branch_id,
-        a.saving_plan_id,
-        a.fd_id,
-        sp.plan_type,
-        sp.interest,
-        sp.min_balance,
-        STRING_AGG(DISTINCT c.first_name || ' ' || c.last_name, ', ') as customer_names,
-        COUNT(DISTINCT t.customer_id) as customer_count
-      FROM account a
-      JOIN takes t ON a.account_id = t.account_id
-      JOIN customer c ON t.customer_id = c.customer_id
-      JOIN savingplan sp ON a.saving_plan_id = sp.saving_plan_id
-      GROUP BY a.account_id, a.balance, a.account_status, a.open_date, a.branch_id, 
-              a.saving_plan_id, a.fd_id, sp.plan_type, sp.interest, sp.min_balance
-      ORDER BY a.open_date DESC
-    `);
-  
-  res.json({ accounts: result.rows });
+        SELECT 
+          a.account_id,
+          a.balance,
+          a.account_status,
+          a.open_date,
+          a.branch_id,
+          a.saving_plan_id,
+          a.fd_id,
+          sp.plan_type,
+          sp.interest,
+          sp.min_balance,
+          STRING_AGG(DISTINCT c.first_name || ' ' || c.last_name, ', ') as customer_names,
+          COUNT(DISTINCT t.customer_id) as customer_count
+        FROM account a
+        JOIN takes t ON a.account_id = t.account_id
+        JOIN customer c ON t.customer_id = c.customer_id
+        JOIN savingplan sp ON a.saving_plan_id = sp.saving_plan_id
+        GROUP BY a.account_id, a.balance, a.account_status, a.open_date, a.branch_id, 
+                 a.saving_plan_id, a.fd_id, sp.plan_type, sp.interest, sp.min_balance
+        ORDER BY a.open_date DESC
+      `);
+      
+      res.json({ accounts: result.rows });
     } catch (error) {
       console.error('Database error:', error);
       res.status(500).json({ message: 'Database error' });

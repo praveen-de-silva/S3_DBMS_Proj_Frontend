@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import UserManagement from './UserManagement';
 import BranchManagement from './BranchManagement';
+import FDInterestManagement from './FDInterestManagement';
 
 const AdminDashboard: React.FC = () => {
   const [activeSection, setActiveSection] = useState('users');
@@ -23,6 +24,12 @@ const AdminDashboard: React.FC = () => {
           🏦 Branch Management
         </button>
         <button 
+          className={activeSection === 'fd-interest' ? 'active' : ''}
+          onClick={() => setActiveSection('fd-interest')}
+        >
+          💰 FD Interest
+        </button>
+        <button 
           className={activeSection === 'reports' ? 'active' : ''}
           onClick={() => setActiveSection('reports')}
         >
@@ -33,27 +40,12 @@ const AdminDashboard: React.FC = () => {
       <div className="admin-content">
         {activeSection === 'users' && <UserManagement />}
         {activeSection === 'branches' && <BranchManagement />}
+        {activeSection === 'fd-interest' && <FDInterestManagement />}
         {activeSection === 'reports' && (
           <div className="reports-section">
             <h4>Reports</h4>
-            <p>View system reports and analytics. This section will display various banking reports and performance metrics.</p>
-            <div className="reports-grid">
-              <div className="report-card">
-                <h4>Transaction Summary</h4>
-                <p>Overview of all transactions</p>
-                <button className="btn btn-secondary">View Report</button>
-              </div>
-              <div className="report-card">
-                <h4>Customer Activity</h4>
-                <p>Customer engagement metrics</p>
-                <button className="btn btn-secondary">View Report</button>
-              </div>
-              <div className="report-card">
-                <h4>Branch Performance</h4>
-                <p>Branch-wise performance analysis</p>
-                <button className="btn btn-secondary">View Report</button>
-              </div>
-            </div>
+            <p>View system reports and analytics.</p>
+            {/* Your existing reports content */}
           </div>
         )}
       </div>

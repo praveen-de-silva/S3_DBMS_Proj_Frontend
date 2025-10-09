@@ -136,6 +136,37 @@ CREATE TABLE IF NOT EXISTS Takes (
     UNIQUE(customer_id, account_id) -- Prevent duplicate relationships
 );
 
+-- Table to track FD interest calculations
+CREATE TABLE IF NOT EXISTS fd_interest_calculations (
+    id SERIAL PRIMARY KEY,
+    fd_id VARCHAR(20) NOT NULL,
+    calculation_date DATE NOT NULL,
+    interest_amount DECIMAL(15,2) NOT NULL,
+    days_in_period INTEGER NOT NULL,
+    credited_to_account_id VARCHAR(20) NOT NULL,
+    credited_at TIMESTAMP,
+    status VARCHAR(20) DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (fd_id) REFERENCES FixedDeposit(fd_id) ON DELETE CASCADE,
+    FOREIGN KEY (credited_to_account_id) REFERENCES Account(account_id) ON DELETE CASCADE
+);
+
+-- Table to store interest calculation periods
+CREATE TABLE IF NOT EXISTS fd_interest_periods (
+    id SERIAL PRIMARY KEY,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    is_processed BOOLEAN DEFAULT FALSE,
+    processed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_fd_interest_fd_id ON fd_interest_calculations(fd_id);
+CREATE INDEX IF NOT EXISTS idx_fd_interest_status ON fd_interest_calculations(status);
+CREATE INDEX IF NOT EXISTS idx_fd_interest_calculation_date ON fd_interest_calculations(calculation_date);
+CREATE INDEX IF NOT EXISTS idx_fd_interest_periods_processed ON fd_interest_periods(is_processed);
+
 -- Create sequences for ID generation (Optional but recommended)
 CREATE SEQUENCE IF NOT EXISTS contact_id_seq;
 CREATE SEQUENCE IF NOT EXISTS branch_id_seq;
